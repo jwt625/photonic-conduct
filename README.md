@@ -26,7 +26,7 @@ Each course has 188 steps, recorded narration for every spoken line (Kokoro-82M,
 Static, no build. Serve the repository root and open `course/index.html`:
 
 ```sh
-python3 -m http.server 47311
+uv run --no-project python -m http.server 47311 --bind 127.0.0.1
 # http://127.0.0.1:47311/course/index.html
 ```
 
