@@ -26,6 +26,11 @@ Legacy branch Pages from `main` at `/`; the user site's custom domain gives the 
 
 ## Verification
 
-- [ ] Local base-path test (parent directory served, `photonic-conduct/` subpath)
-- [ ] Live HTTP checks (root, course catalog, player, a narration clip, a render, KaTeX font)
-- [ ] Live headless screenshot and a click-through of the first steps
+- [x] Local base-path test: parent directory served, redirect to course/index.html, dev-mode sweep of all 201 steps per course under the subpath: 0 errors, 0 failed requests
+- [x] Live HTTP checks: root, catalog, player, audio manifest and a clip, presenter video, KaTeX font, mode data: all 200
+- [x] Live headless: root forwards to the catalog; `?dev=1` ignored on the live host; both courses begin with Next locked during narration; no page errors or failed requests
+
+## Listings (2026-11-22)
+
+- PlayGround readme spun-off section and `assets/photonic-conduct.png`: committed and pushed (27c70d8).
+- Blog `_data/projects.yml` entry and thumbnail: edited locally only; he pushes the blog with other work.
