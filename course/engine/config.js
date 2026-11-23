@@ -1,5 +1,6 @@
 /* Engine configuration. Loaded first by player.html and index.html. Contract: course/COURSE_SPEC.md (Tranche 2, Dev mode). */
-window.LMS_CONFIG = window.LMS_CONFIG || { devHosts: ['localhost', '127.0.0.1'], fileDev: true };
+/* certVariant: certificate design (engine/certificate.js: A classic diploma, B Victorian engraved, C modern corporate award, D banknote and bond); a course's certificate.variant overrides it */
+window.LMS_CONFIG = window.LMS_CONFIG || { devHosts: ['localhost', '127.0.0.1'], fileDev: true, certVariant: 'A' };
 
 /* True when the page is served from a host where dev mode may be enabled. `loc` defaults to window.location. */
 window.LMS_isDevHost = function (loc) {

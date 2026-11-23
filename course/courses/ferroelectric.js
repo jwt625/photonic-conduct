@@ -96,7 +96,8 @@
   }
 
 
-  function objectives(title, items, extra) {
+  function objectives(title, items, extra, media) {
+    if (extra && !Array.isArray(extra)) { media = extra; extra = null; }
     var n = ["Welcome to this chapter. " + title + "."];
     n.push("By the end of this chapter, you will be able to do the following.");
     items.forEach(function (it, i) { n.push("Objective " + (i + 1) + ". " + tts(it)); });
@@ -104,7 +105,7 @@
     items.forEach(function (it) { n.push(tts(it)); });
     n.push("And as always, remember our mantra. " + M);
     if (extra) n = n.concat(extra);
-    return { type: 'slide', layout: 'bullets', title: 'Learning objectives', bullets: items, callout: M, narration: n };
+    return Object.assign({ type: 'slide', layout: 'bullets', title: 'Learning objectives', bullets: items, callout: M, narration: n }, media);
   }
 
   // Eight categories of orientation misconduct (taught in the Sources of Orientation Misconduct chapter)
@@ -120,19 +121,20 @@
   // Static widget lines: every line a widget may speak, registered in course.speech.
   // Keep each identical to the literal passed to the widget's speech call.
 
-  function takeaways(items, withCats) {
+  function takeaways(items, withCats, media) {
+    if (withCats && typeof withCats === 'object') { media = withCats; withCats = false; }
     var extra = withCats ? [
       "And remember the eight categories of orientation misconduct. " + CATS_SAY,
       "Whatever the category, the response is the same. " + RESPOND
     ] : [];
-    return {
+    return Object.assign({
       type: 'takeaways', title: 'Key takeaways', items: items.concat(withCats ? ['Eight categories, one response: ' + RESPOND, M] : [M]),
       narration: ["Let's review the key takeaways."].concat(items.map(tts)).concat(extra).concat([
         "One more time, together. " + M,
         "If you only remember one thing from this chapter, remember all four things in the mantra.",
         "Click Next to continue."
       ])
-    };
+    }, media);
   }
 
   // Insert steps just before the chapter's takeaways step
@@ -144,8 +146,8 @@
   }
 
   // "How do you think Gary felt?" check, HR voice
-  function feelCheck(context) {
-    return {
+  function feelCheck(context, media) {
+    return Object.assign({
       type: 'check', kicker: 'Reflection',
       question: 'How do you think Gary felt when ' + context + '?',
       narration: ["Let's pause and reflect.", "How do you think Gary felt when " + context + "?"],
@@ -156,19 +158,31 @@
         { text: 'It is not appropriate to speculate about how Gary felt', correct: false, why: "In most workplace contexts, that would be a thoughtful answer. In this training, it is not the answer we are looking for. Gary felt ashamed, and he told us so, in a voluntary self-assessment. Shame is a normal response to an orientation incident. The Office of Photonic Conduct is a judgment-free zone. And the incident has still been logged." }
       ],
       correctSay: "Gary felt ashamed. Shame is normal. The Office of Photonic Conduct is a judgment-free zone. The incident has still been logged."
-    };
+    }, media);
   }
 
-  function ack(what) {
-    return {
+  function ack(what, media) {
+    return Object.assign({
       type: 'ack',
       text: "I acknowledge that I have completed this chapter on " + what + " in full, without skipping, muting, or opening another tab. I understand that the crystal does not care about my intentions. I will " + M.charAt(0).toLowerCase() + M.slice(1) + " I understand that failure to comply may result in unwelcome charge accumulation, silent coordinate errors, and a mandatory repeat of this course.",
       narration: ["Please read the attestation and tick the box to confirm.", "Your attestation is recorded and may be reviewed by the Office of Photonic Conduct."]
-    };
+    }, media);
   }
 
-  function refs(items) {
-    return { type: 'refs', items: items, narration: ["The following sources were used in this chapter. All of them are real. Please read them during your own time, which is also company time."] };
+  // media: an explicit { art } or { image }; otherwise a sliding card per source, with [ref, figure] pairs where the chapter has a figure
+  function refs(items, media) {
+    return Object.assign({ type: 'refs', items: items, narration: ["The following sources were used in this chapter. All of them are real. Please read them during your own time, which is also company time."] },
+      media && !Array.isArray(media) ? media : refArt(items, media));
+  }
+  function refArt(items, figs) {
+    return { art: { name: 'fe.refs', params: { items: items.map(function (r) {
+      var base = r.cite.split(' (')[0], parts = base.split(', '), last = parts[parts.length - 1], yr = base.match(/(\d{4})(?!.*\d{4})/), fig = null, a, j;
+      (figs || []).forEach(function (f) { if (f[0] === r) fig = f[1]; });
+      if (/^US Patent/.test(base)) { a = ''; j = base.replace(/, \d{4}$/, ''); }
+      else if (/^\d{4}$/.test(last) && parts.length > 2) { j = parts[parts.length - 2]; a = parts[0] + (parts.length > 3 && parts[1].indexOf(':') < 0 && !/et al\.$/.test(parts[0]) ? ' et al.' : ''); }
+      else { a = parts[0]; j = parts.slice(1).join(', '); }
+      return { a: a, j: j, y: yr ? +yr[1] : '', fig: fig };
+    }) } } };
   }
 
   /* ---------- reference list ---------- */
@@ -243,6 +257,7 @@
         ]
       },
       {
+        art: { name: 'fe.enforce' },
         type: 'slide', layout: 'policy', title: 'Course enforcement rules',
         bullets: [
           'Narration cannot be skipped, sped up, or scrubbed',
@@ -278,17 +293,18 @@
         ]
       },
       {
-        type: 'reveal', title: 'Meet the people in this course',
-        prompt: 'Open each profile to continue.',
-        tabs: [
-          { label: 'Gary', body: '<p>Gary is a dedicated device engineer. Gary moves fast. Gary has never once checked which edge of the chip is the z axis.</p><p>In this course, Gary will make every mistake so that you do not have to.</p>', narration: ["This is Gary. Gary is a dedicated engineer who moves fast. Gary will make every mistake in this course, so that you do not have to."] },
-          { label: 'Gary\'s manager', body: '<p>Gary\'s manager wants results by Friday. The manager approves things that look like results.</p>', narration: ["This is Gary's manager. Gary's manager wants results by Friday, and approves things that look like results."] },
-          { label: 'Dana Okafor', body: '<p>Dana Okafor is Gary\'s labmate. Dana has seen this before. When something looks wrong, Dana speaks up.</p><p>Be like Dana.</p>', narration: ["This is Dana Okafor, Gary's labmate. Dana has seen this before. When something looks wrong, Dana speaks up. Be like Dana."] },
-          { label: 'The crystal', body: '<p>Congruent lithium niobate. Point group 3m. Optic axis: z. Negative uniaxial: the extraordinary index is lower than the ordinary index.</p><p>The crystal does not attend meetings.</p>', narration: ["And this is the crystal. Congruent lithium niobate, point group three m. It is negative uniaxial, which means the extraordinary index is lower than the ordinary index. The crystal does not attend meetings, but it remembers everything."] }
+        type: 'cards', style: 'flip', mode: 'explore', title: 'Meet the people in this course',
+        prompt: 'Turn over each profile to continue.',
+        cards: [
+          { image: { src: 'media/render/cast_gary.jpg' }, label: 'Gary, device engineer', body:'<p>Gary is a dedicated device engineer. Gary moves fast. Gary has never once checked which edge of the chip is the z axis.</p><p>In this course, Gary will make every mistake so that you do not have to.</p>', narration: ["This is Gary. Gary is a dedicated engineer who moves fast. Gary will make every mistake in this course, so that you do not have to."] },
+          { image: { src: 'media/render/cast_morgan.jpg' }, label: 'Gary\'s manager', body: '<p>Gary\'s manager wants results by Friday. The manager approves things that look like results.</p>', narration: ["This is Gary's manager. Gary's manager wants results by Friday, and approves things that look like results."] },
+          { image: { src: 'media/render/cast_dana.jpg' }, label: 'Dana Okafor, Gary\'s labmate', body: '<p>Dana Okafor is Gary\'s labmate. Dana has seen this before. When something looks wrong, Dana speaks up.</p><p>Be like Dana.</p>', narration: ["This is Dana Okafor, Gary's labmate. Dana has seen this before. When something looks wrong, Dana speaks up. Be like Dana."] },
+          { image: { src: 'media/render/cast_crystal_ln_wafer.jpg' }, label: 'The crystal, lithium niobate', body: '<p>Congruent lithium niobate. Point group 3m. Optic axis: z. Negative uniaxial: the extraordinary index is lower than the ordinary index.</p><p>The crystal does not attend meetings.</p>', narration: ["And this is the crystal. Congruent lithium niobate, point group three m. It is negative uniaxial, which means the extraordinary index is lower than the ordinary index. The crystal does not attend meetings, but it remembers everything."] }
         ]
       },
       {
         type: 'check',
+        art: { name: 'fe.mantra' },
         question: 'Practice question. Which of the following is the course mantra?',
         options: [
           { text: M, correct: true, why: '' },
@@ -297,7 +313,7 @@
         ],
         correctSay: "Wonderful. You will hear it many more times."
       },
-      ack('course navigation and enforcement')
+      ack('course navigation and enforcement', { art: { name: 'fe.sign', params: { seed: 1, emblem: 'crystal', col: '#5b3f8a' } } })
     ]
   };
 
@@ -316,7 +332,7 @@
     steps: []
   };
   ch1.steps = [
-    objectives(ch1.title, ch1.objectives),
+    objectives(ch1.title, ch1.objectives, { art: { name: 'fe.ellipsoid' } }),
     {
       type: 'video', title: 'Cold open: Which edge is z?', duration: 26,
       narration: [
@@ -354,6 +370,7 @@
       ]
     },
     {
+      art: { name: 'fe.rotateRoom' },
       type: 'reveal', title: 'Four orientation hazards',
       prompt: 'Open each hazard to continue.',
       tabs: [
@@ -427,6 +444,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.rotTest' },
       question: 'Gary verified his tensor rotation code at 0 and 90 degrees and it matched. He now trusts it at 45 degrees. What is the best next step?',
       options: [
         { text: 'Validate at a non-special angle, such as 30 or 45 degrees, against an independent calculation, and state whether the angle rotates the crystal or the coordinates', correct: true, why: '' },
@@ -437,6 +455,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.xcutFilm' },
       question: 'Which statement about x-cut thin-film lithium niobate is correct?',
       options: [
         { text: 'The optic axis z lies in the plane of the film, so the in-plane propagation direction changes what the TE mode sees', correct: true, why: '' },
@@ -452,8 +471,8 @@
       'Validate rotations at a non-special angle',
       'Label the cut and the frame on every model, figure, and chip',
       'Only the first layer sees the flat; check it at the aligner, every wafer'
-    ]),
-    ack('crystal orientation awareness'),
+    ], { art: { name: 'fe.banner', params: { theme: 'orient' } } }),
+    ack('crystal orientation awareness', { art: { name: 'fe.sign', params: { seed: 2, emblem: 'axes', col: '#3f5d8a' } } }),
     refs([R.weis, R.ieee176, R.zelmon])
   ];
 
@@ -472,7 +491,7 @@
     steps: []
   };
   ch2.steps = [
-    objectives(ch2.title, ch2.objectives),
+    objectives(ch2.title, ch2.objectives, { art: { name: 'fe.bendGlow' } }),
     {
       type: 'video', title: 'Cold open: The gentle bend', duration: 24,
       narration: [
@@ -580,6 +599,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.teTurn' },
       question: 'On x-cut lithium niobate, which polarization sees an index that changes with in-plane propagation angle?',
       options: [
         { text: 'TE, polarized in the plane, because its field direction rotates between the z and y crystal axes as the guide turns', correct: true, why: '' },
@@ -604,9 +624,9 @@
       'A larger bend radius can increase TE to TM conversion on x-cut',
       'Matched length at different angles is not matched phase',
       'TM on x-cut uses a smaller electro-optic coefficient: about three times the V pi; verify the launch with a polarizer'
-    ], true),
-    ack('mode conversion in bends'),
-    refs([R.zelmon, R.wangLT, R.liu2024, R.wangPJ2020, R.liu2023, R.xie2026, R.weis])
+    ], true, { art: { name: 'fe.banner', params: { theme: 'bends' } } }),
+    ack('mode conversion in bends', { art: { name: 'fe.sign', params: { seed: 7, emblem: 'ring', col: '#2c6a7a' } } }),
+    refs([R.zelmon, R.wangLT, R.liu2024, R.wangPJ2020, R.liu2023, R.xie2026, R.weis], [[R.wangLT, 'media/lit/fe_wang2024_fig2g.png'], [R.wangPJ2020, 'media/lit/fe_wang2020_fig6bc.png'], [R.liu2023, 'media/lit/fe_liu2023_fig3e.jpg']])
   ];
 
   /* ======================= CHAPTER 3 ======================= */
@@ -623,7 +643,7 @@
     steps: []
   };
   ch3.steps = [
-    objectives(ch3.title, ch3.objectives),
+    objectives(ch3.title, ch3.objectives, { art: { name: 'fe.prShift' } }),
     {
       type: 'video', title: 'Cold open: The record Q', duration: 26,
       narration: [
@@ -726,6 +746,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.prRing' },
       question: 'In a lithium niobate microring at moderate power, the photorefractive effect typically shifts the resonance in which direction, and what is the measurement consequence?',
       options: [
         { text: 'To shorter wavelength (blue shift); sweeping against the shift can make the dip look artificially narrow, so sweep both ways and at low power', correct: true, why: '' },
@@ -736,6 +757,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.sweepDir' },
       question: 'Gary wants to report the intrinsic loss of a new lithium niobate waveguide. Which approach is most compliant?',
       options: [
         { text: 'Sweep both directions at decreasing power until the linewidths agree, report direction and power, and consider a measurement faster than the photorefractive response', correct: true, why: '' },
@@ -749,9 +771,9 @@
       'Sweep both directions and lower the power until they agree; report both',
       'Deposited oxide cladding can make photorefraction much worse',
       'Optical damage is mostly reversible charge, and it remembers'
-    ], true),
-    ack('photorefractive conduct'),
-    refs([R.luke2020, R.xu2021, R.shen2024, R.liang2017, R.li2019, R.shams2022, R.lu2019, R.zhang2026])
+    ], true, { art: { name: 'fe.banner', params: { theme: 'pr' } } }),
+    ack('photorefractive conduct', { art: { name: 'fe.sign', params: { seed: 11, emblem: 'dip', col: '#2c4a7a' } } }),
+    refs([R.luke2020, R.xu2021, R.shen2024, R.liang2017, R.li2019, R.shams2022, R.lu2019, R.zhang2026], [[R.xu2021, 'media/lit/fe_xu2021_fig5.png'], [R.shams2022, 'media/lit/fe_shams2022_fig2.png'], [R.zhang2026, 'media/lit/fe_zhang2026_fig2de.png']])
   ];
 
   /* ======================= CHAPTER 4 ======================= */
@@ -769,7 +791,7 @@
     steps: []
   };
   ch4.steps = [
-    objectives(ch4.title, ch4.objectives),
+    objectives(ch4.title, ch4.objectives, { art: { name: 'fe.pyroLattice' } }),
     {
       type: 'video', title: 'Cold open: The hotplate', duration: 26,
       narration: [
@@ -810,6 +832,7 @@
       narration: ["In this activity, you will heat a lithium niobate wafer on a grounded hot plate, hold it, and cool it down again.", "Move the temperature, then the ramp rate. A slow ramp only helps if the charge can leak away while you ramp.", "Then compare a z-cut wafer, a z-cut thin film, and an x-cut wafer, and compare the field with the field needed to flip domains."]
     },
     {
+      art: { name: 'fe.tempTour' },
       type: 'reveal', title: 'Where temperature change happens at work',
       prompt: 'Open each workplace location to continue.',
       tabs: [
@@ -871,6 +894,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.heatStep' },
       question: 'Why is a fast hotplate step riskier for z-cut lithium niobate than for silicon?',
       options: [
         { text: 'Lithium niobate is pyroelectric: a temperature change creates bound surface charge on faces normal to z, and a fast step leaves no time for it to be screened', correct: true, why: '' },
@@ -885,8 +909,8 @@
       'z-cut puts the charge on the device faces; x-cut on the edges',
       'Ramp slowly, ground, use a discharge path, and protect your neighbors in the cryostat',
       'Short the pads during thermal steps; discharge before connecting anything'
-    ], true),
-    ack('pyroelectric awareness'),
+    ], true, { art: { name: 'fe.banner', params: { theme: 'pyro' } } }),
+    ack('pyroelectric awareness', { art: { name: 'fe.sign', params: { seed: 13, emblem: 'flame', col: '#7a3a2c' } } }),
     refs([R.weis, R.popescu2013, R.volk2008, R.bulmer1986, R.luo2018, R.weigel2018, R.naranjo2005, R.xu2022, R.bordui1999, R.chen2025, R.patent7309392, R.zhu2021])
   ];
 
@@ -905,7 +929,7 @@
     steps: []
   };
   ch5.steps = [
-    objectives(ch5.title, ch5.objectives),
+    objectives(ch5.title, ch5.objectives, { art: { name: 'fe.biasDrift' } }),
     {
       type: 'video', title: 'Cold open: Quadrature on Monday', duration: 24,
       narration: [
@@ -1010,6 +1034,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.scopeVpi' },
       question: 'Gary measures V pi with a 1 kHz triangle on a thin-film lithium niobate modulator and quotes it as the high-speed V pi. What is the issue?',
       options: [
         { text: 'Low-frequency V pi can differ strongly from RF V pi because charge relaxation screens the field at low frequency; state the frequency and measure at the frequency you claim', correct: true, why: '' },
@@ -1025,9 +1050,9 @@
       'State V pi convention, bandwidth dB convention, and normalization frequency',
       'A traveling-wave modulator turned around runs counter-propagating: a few gigahertz of bandwidth instead of tens',
       'Zero tolerance for retaliation; protection does not depend on being right'
-    ], true),
-    ack('bias point retention'),
-    refs([R.liu2026, R.yeh2026, R.holzgrafe2024, R.maeder2022, R.zheng2024, R.valdez2023, R.weis, R.volk2008, R.arab2022, R.boynton2020, R.sones2002, R.zhu2021])
+    ], true, { art: { name: 'fe.banner', params: { theme: 'bias' } } }),
+    ack('bias point retention', { art: { name: 'fe.sign', params: { seed: 17, emblem: 'sine', col: '#6a2c4f' } } }),
+    refs([R.liu2026, R.yeh2026, R.holzgrafe2024, R.maeder2022, R.zheng2024, R.valdez2023, R.weis, R.volk2008, R.arab2022, R.boynton2020, R.sones2002, R.zhu2021], [[R.liu2026, 'media/lit/fe_liu2026_fig5a.png'], [R.zheng2024, 'media/lit/fe_zheng2024_fig2.jpg']])
   ];
 
   /* ======================= CHAPTER 6 ======================= */
@@ -1044,7 +1069,7 @@
     steps: []
   };
   ch6.steps = [
-    objectives(ch6.title, ch6.objectives),
+    objectives(ch6.title, ch6.objectives, { art: { name: 'fe.simMesh' } }),
     {
       type: 'video', title: 'Cold open: Q equals seven times ten to the thirteen', duration: 24,
       narration: [
@@ -1080,6 +1105,7 @@
       ]
     },
     {
+      art: { name: 'fe.simHazards' },
       type: 'reveal', title: 'Simulation integrity hazards',
       prompt: 'Open each hazard to continue.',
       tabs: [
@@ -1141,6 +1167,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.symQ' },
       question: 'A quarter model of a rotated-frame lithium niobate resonator with two symmetry planes gives $Q = 10^{13}$. The full model, same frame, gives $Q \\approx 10^{3}$. Which is more trustworthy, and why?',
       narration: ["A quarter model of a rotated-frame lithium niobate resonator, with two symmetry planes, gives a quality factor of ten to the thirteen. The full model, in the same frame, gives about ten to the three. Which is more trustworthy, and why?"],
       options: [
@@ -1152,6 +1179,7 @@
     },
     {
       type: 'check',
+      art: { name: 'fe.pmlSlider' },
       question: 'Gary weakens the perfectly matched layer and the computed Q goes up. What does this most likely mean?',
       options: [
         { text: 'The loss channel is not reaching the absorber; something such as a symmetry plane or boundary condition is blocking the leak', correct: true, why: '' },
@@ -1165,22 +1193,22 @@
       'Q that rises when the absorber weakens means the loss is not captured',
       'In piezo eigen studies, Voltage terminal is short, zero-charge Charge terminal is open',
       'Put cut, Euler angles, and symmetry settings on the first slide'
-    ], true),
-    ack('simulation integrity'),
-    refs([{ cite: 'Logged cases in this chapter come from unpublished lab notes; there is no public source to cite.' }])
+    ], true, { art: { name: 'fe.banner', params: { theme: 'sim' } } }),
+    ack('simulation integrity', { art: { name: 'fe.sign', params: { seed: 19, emblem: 'mesh', col: '#4b3a7a' } } }),
+    refs([{ cite: 'Logged cases in this chapter come from unpublished lab notes; there is no public source to cite.' }], { art: { name: 'fe.labNotes' } })
   ];
 
   /* ======================= INCIDENT SCENARIOS ======================= */
   // All incidents are fictional and take place at Five Sigma Photonics, Inc. Physics and cited numbers are real.
 
-  function incidentSlide(title, bullets, narration) {
-    return {
+  function incidentSlide(title, bullets, narration, media) {
+    return Object.assign({
       type: 'slide', layout: 'policy', title: 'Incident report: ' + title, bullets: bullets,
       narration: ["We will now review an incident at Five Sigma Photonics."].concat(narration).concat([
         "As you watch, ask yourself two questions. Where was the orientation reference lost? And who could have spoken up?",
         M
       ])
-    };
+    }, media);
   }
 
   function feltSlide(what) {
@@ -1207,6 +1235,7 @@
   }
 
   var phraseSlide = {
+    art: { name: 'fe.speakUp' },
     type: 'slide', layout: 'policy', title: 'Policy reminder: the approved speak-up phrases',
     bullets: [
       'Orientation concerns: "' + PHRASE_O + '"',
@@ -1237,7 +1266,7 @@
       'Product: x-cut thin-film lithium niobate modulators, lot 7',
       "Persons involved: Gary, Dana Okafor (labmate), Gary's manager",
       'Status: logged'
-    ], ["It concerns a ninety degree orientation error during lithography on x-cut lithium niobate."]),
+    ], ["It concerns a ninety degree orientation error during lithography on x-cut lithium niobate."], { art: { name: 'fe.caseFile', params: { scene: 'flat' } } }),
     {
       type: 'video', title: "Incident video: The flat at three o'clock", duration: 34,
       narration: [
@@ -1276,8 +1305,9 @@
         "Know your axes. " + RESPOND
       ]
     },
-    feelCheck("the lot 7 test summary arrived in everyone's inbox"),
+    feelCheck("the lot 7 test summary arrived in everyone's inbox", { art: { name: 'fe.feelings', params: { scene: 'inbox' } } }),
     {
+      art: { name: 'fe.flatWrong' },
       type: 'reveal', title: 'What went wrong, technically',
       prompt: 'Open each finding to continue.',
       tabs: [
@@ -1302,6 +1332,7 @@
     },
     {
       type: 'check', kicker: 'What would you do?',
+      art: { name: 'fe.waferMap' },
       question: "You are Gary. The lot 7 summary is in your inbox, the wafer map photo shows the waveguides parallel to the flat, and you remember loading the flat at three o'clock. What do you do?",
       narration: ["You are Gary.", "The test summary is in your inbox. You remember loading the flat at three o'clock.", "What would you do?"],
       options: [
@@ -1341,7 +1372,7 @@
       'Product: x-cut thin-film lithium niobate modulators, waveguides along y',
       'Persons involved: Gary, Dana Okafor (labmate), Gary\'s manager',
       'Status: logged'
-    ], ["It concerns a ninety degree error in the launch polarization at the chip input."]),
+    ], ["It concerns a ninety degree error in the launch polarization at the chip input."], { art: { name: 'fe.caseFile', params: { scene: 'rods' } } }),
     {
       type: 'video', title: "Incident video: The rods at twelve o'clock", duration: 30,
       narration: [
@@ -1383,6 +1414,7 @@
     },
     feltSlide("he realized fourteen chips had been measured in T M"),
     {
+      art: { name: 'fe.r33r13' },
       type: 'reveal', title: 'What went wrong, technically',
       prompt: 'Open each finding to continue.',
       tabs: [
@@ -1406,6 +1438,7 @@
     },
     {
       type: 'check', kicker: 'What would you do?',
+      art: { name: 'fe.polarizer' },
       question: 'You are Gary. You now know that this week\'s V pi values for 14 chips were taken with TM light, and two of them were already sent to a customer. What do you do?',
       narration: ["You are Gary.", "Fourteen chips were measured in T M this week. Two results already went to a customer.", "What would you do?"],
       options: [
@@ -1421,6 +1454,7 @@
     },
     {
       type: 'check', kicker: 'You are Dana',
+      art: { name: 'fe.pandaFace' },
       question: 'You walk past test bench 3. The end-face image on the monitor shows the stress rods vertical. The bench card says horizontal. Gary is about to start a 14-chip overnight run and leave. What do you do?',
       narration: ["You are Dana.", "The stress rods are vertical. The bench card says horizontal. Gary is about to start an overnight run.", "What would you do?"],
       options: [
@@ -1443,7 +1477,7 @@
       'Equipment involved: one driver amplifier (former)',
       "Persons involved: Gary, Dana Okafor (labmate), Gary's manager",
       'Status: logged'
-    ], ["It concerns a pyroelectric discharge from a bulk z-cut lithium niobate chip into a connected driver amplifier."]),
+    ], ["It concerns a pyroelectric discharge from a bulk z-cut lithium niobate chip into a connected driver amplifier."], { art: { name: 'fe.caseFile', params: { scene: 'hotplug' } } }),
     {
       type: 'video', title: 'Incident video: The hot plug', duration: 32,
       narration: [
@@ -1482,8 +1516,9 @@
         "Watch your charge. " + RESPOND
       ]
     },
-    feelCheck('the driver amplifier stopped working with a small snap'),
+    feelCheck('the driver amplifier stopped working with a small snap', { art: { name: 'fe.feelings', params: { scene: 'snap' } } }),
     {
+      art: { name: 'fe.pyroCharge' },
       type: 'reveal', title: 'What went wrong, technically',
       prompt: 'Open each finding to continue.',
       tabs: [
@@ -1511,6 +1546,7 @@
     },
     {
       type: 'check', kicker: 'What would you do?',
+      art: { name: 'fe.fixtureWait' },
       question: 'You are Gary. You now understand that the amplifier failed from a pyroelectric discharge you caused. Fixture 3 is waiting for the same thermal step this afternoon. What do you do?',
       narration: ["You are Gary.", "You understand the failure now. Fixture three is waiting for the same thermal step.", "What would you do?"],
       options: [
@@ -1548,7 +1584,7 @@
       'Product: x-cut thin-film lithium niobate traveling-wave modulators, 5 mm, on-chip termination',
       "Persons involved: Gary, Dana Okafor (labmate), Gary's manager",
       'Status: logged, and escalated'
-    ], ["It concerns a one hundred eighty degree orientation error at an R F probe station, and what happened when the schedule became involved."]),
+    ], ["It concerns a one hundred eighty degree orientation error at an R F probe station, and what happened when the schedule became involved."], { art: { name: 'fe.caseFile', params: { scene: 'turned' } } }),
     {
       type: 'video', title: 'Incident video: The chip that was turned around', duration: 32,
       narration: [
@@ -1589,6 +1625,7 @@
     },
     feltSlide("he saw the null at thirteen and a half gigahertz on a chip he had loaded himself"),
     {
+      art: { name: 'fe.travelWave' },
       type: 'reveal', title: 'What went wrong, technically',
       prompt: 'Open each finding to continue.',
       tabs: [
@@ -1647,6 +1684,7 @@
     },
     {
       type: 'check', kicker: 'What would you do?',
+      art: { name: 'fe.runSheet' },
       question: 'You are Dana. Your manager suggests shipping on DC data and holding the RF numbers off the run sheet until they are re-measured. What do you do?',
       narration: ["You are Dana.", "Your manager suggests holding the R F numbers off the run sheet until they are re-measured.", "What would you do?"],
       options: [
@@ -1675,6 +1713,7 @@
     },
     {
       type: 'check', kicker: 'Classify the behavior',
+      image: { src: 'media/shared/conference_room_modern.jpg', kb: [0.5, 0.5, 1, 0.55, 0.5, 1.1] },
       question: "Which statement best describes the manager's Monday message?",
       narration: ["Which statement best describes the manager's Monday message?"],
       options: [
@@ -1686,6 +1725,7 @@
       correctSay: "This is retaliation. Good-faith orientation and charge reports are protected, whether or not they turn out to be right. Five Sigma Photonics has zero tolerance for retaliation."
     },
     {
+      art: { name: 'fe.shield' },
       type: 'slide', layout: 'policy', title: 'Zero tolerance for retaliation',
       bullets: [
         'Good-faith orientation and charge reports are protected activity under Policy PHC-17.3',
@@ -1732,6 +1772,7 @@
   function catSteps(key, n, c) {
     var K = CAT[key];
     var slide = {
+      art: { name: 'fe.cat', params: { k: n } },
       type: 'slide', layout: 'policy', title: 'Category ' + n + ' of 8: ' + K.name,
       bullets: ['Definition: ' + K.def.charAt(0).toUpperCase() + K.def.slice(1) + '.'].concat(
         c.examples.map(function (e) { return 'Example: ' + e; })).concat(
@@ -1757,13 +1798,13 @@
           ". Classifying correctly sends the corrective action to the right place. Know your categories. " + RESPOND
       });
     });
-    var classify = {
+    var classify = Object.assign({
       type: 'check', kicker: 'Classify the incident',
       question: c.classifyQ + ' Which category of orientation misconduct is this?',
       narration: ["Classify the incident.", "Which category of orientation misconduct is this?"],
       options: opts,
       correctSay: "This is " + K.say + ". " + RESPOND
-    };
+    }, c.media);   // c.media: { art } or { image } for the classify panel
     return [slide, chat, classify];
   }
 
@@ -1782,7 +1823,7 @@
   chSrc.steps = [objectives(chSrc.title, chSrc.objectives, [
     "In this chapter, you will learn the eight recognized sources of orientation misconduct. " + CATS_SAY,
     "You will hear them many times. That is intentional."
-  ]), {
+  ], { art: { name: 'fe.eightCats' } }), {
     type: 'video', title: 'Cold open: Many hands', duration: 32,
     narration: [
       "Watch one die's journey, and judge whether it is okay.",
@@ -1848,6 +1889,7 @@
         ],
         narration: ["A tool turned the wafer, exactly as its recipe said, and nobody checked the flat before exposure.", "Tools are not disciplined. Recipes and hand-offs are. Know your axes."]
       },
+      media: { art: { name: 'fe.prealign' } },
       classifyQ: 'A prealigner turned an x-cut wafer to the angle in a default recipe written for a different product. Nobody checked the flat before exposure.',
       wrong: [
         ['soft', 'In this incident, no crystal frame was set in design or simulation software. The wafer was physically turned by a tool, following its recipe, and nobody re-verified the flat.'],
@@ -1884,6 +1926,7 @@
         ],
         narration: ["Gary put the crystal z axis on the simulation z axis, which in his setup is the film normal. The software solved a z-cut device, correctly.", "The solver does not know your wafer. It knows your input. Know your axes."]
       },
+      media: { art: { name: 'fe.frameSwap' } },
       classifyQ: "Gary's time-domain simulation placed the crystal z axis on the simulation z axis, which in his setup is the film normal, so his x-cut model was a z-cut model. The software solved it correctly, and nobody checked it against a known case.",
       wrong: [
         ['tool', 'In this incident, no wafer or die was physically turned. The error lives in a crystal frame inside simulation software.'],
@@ -1919,6 +1962,7 @@
         ],
         narration: ["The new supplier's datasheet defines the flat at a different crystal direction. Nobody compared it with the old one, and the old mask was used.", "X-cut names the axis normal to the wafer. It does not name the flat. Know your axes."]
       },
+      media: { art: { name: 'fe.twoFlats' } },
       classifyQ: "A team switched to a new supplier's x-cut wafers. The new datasheet defines the primary flat at a different crystal direction than the old supplier's. Nobody compared them, and the old mask was used.",
       wrong: [
         ['cross', 'In this incident, the material came from a commercial supplier under its own datasheet, not from a collaborating institution exchanging designs or dies.'],
@@ -1955,6 +1999,7 @@
         ],
         narration: ["Orientation was kept in one person's head and placed in a shared gel-pak without marks or a note.", "If the orientation does not travel with the die, the die travels alone. Know your axes."]
       },
+      media: { art: { name: 'fe.diePick' } },
       classifyQ: 'A coworker on the previous shift placed dies in a shared gel-pak with no marks and no note. Gary loaded one turned around.',
       wrong: [
         ['dom', "In this incident, the orientation information was lost between two members of the same group, at a shared container. Gary did load it, but the reference was never passed to him."],
@@ -1991,6 +2036,7 @@
         ],
         narration: ["Two institutions, two definitions of zero degrees, and one mirror. On x-cut, plus forty five and minus forty five degrees are different devices.", "There is no standard orientation. There is only a written one. Know your axes."]
       },
+      media: { art: { name: 'fe.mirrorView' } },
       classifyQ: 'A partner university shipped dies measured from its own chip edge, viewed through the substrate. The email thread said "standard orientation, as discussed". Plus 45 degrees became minus 45 degrees.',
       wrong: [
         ['third', 'In this incident, the dies and their convention came from a collaborating institution exchanging work, not from a commercial supplier under a datasheet.'],
@@ -2025,6 +2071,7 @@
         ],
         narration: ["Read Gary's notes to himself, and judge whether his response is proper.", "Gary found his own loading error, and nobody else saw it. Is this okay?", "Yes. Gary is the source, the victim, and the only witness. He logged it anyway, because domestic misconduct has no witnesses. Know your axes."]
       },
+      media: { art: { name: 'fe.dieMark' } },
       classifyQ: 'Gary marked his own chip on the wrong corner, loaded it from his own notes, and was the only person who knew until he logged it.',
       wrong: [
         ['peer', 'In this incident, no coworker, shared container, or shared template was involved. Gary is the source and the affected party.'],
@@ -2060,6 +2107,7 @@
         ],
         narration: ["Gary offered tool time in the same message as a request to co-sign a check Dana did not see. Dana declined the trade and offered to do the check.", "A check cannot be traded. It can only be done. Know your axes."]
       },
+      media: { art: { name: 'fe.trade' } },
       classifyQ: 'Gary offered his stepper slot to a coworker in exchange for signing off a flat check that was not performed.',
       wrong: [
         ['peer', 'Both people are in the same group, so it can look like peer-to-peer. But the defining feature here is the exchange: a benefit offered for a skipped check. That makes it quid pro quo, which the policy treats more seriously.'],
@@ -2096,6 +2144,7 @@
         ],
         narration: ["Read this channel, and judge the answers the new hire gets.", "Crackling wafers, unmarked dies, and no time to fix either. Is this okay?", "No. When correct conduct is impossible for everyone, the environment is the incident. You should not get used to it. Watch your charge."]
       },
+      media: { image: { src: 'media/fe/pyro_cracked_die.jpg', kb: [0.5, 0.5, 1, 0.45, 0.5, 1.12] } },
       classifyQ: 'In one lab, hotplates have no ramp control, wafers crackle when they come off, dies are stored unmarked, and new hires are told "you get used to it".',
       wrong: [
         ['tool', 'A hotplate without ramp control is part of it, but this incident is not one tool turning one wafer. It is many conditions, together, making correct conduct impossible.'],
@@ -2109,6 +2158,7 @@
   var srcAct = {
     afterSoft: {
       type: 'check', kicker: 'What would you do?',
+      art: { name: 'fe.deckSent' },
       question: 'You are Gary. You discover that your "x-cut" simulations were z-cut simulations. The results are already in a design review deck sent to three groups. What do you do?',
       narration: ["You are Gary.", "Your x-cut simulations were z-cut simulations, and three groups have the deck.", "What would you do?"],
       options: [
@@ -2123,6 +2173,7 @@
     },
     afterPeer: {
       type: 'check', kicker: 'You are Dana',
+      art: { name: 'fe.bystander' },
       question: 'You see a coworker taking dies from the shared, unmarked gel-pak and loading them into the probe station without looking for a die mark. What do you do?',
       narration: ["You are Dana.", "A coworker is loading dies from the shared unmarked gel-pak, without checking orientation.", "What would you do?"],
       options: [
@@ -2136,6 +2187,7 @@
     },
     afterDom: {
       type: 'check', kicker: 'What would you do?',
+      art: { name: 'fe.notebook' },
       question: 'You are Gary. Months later, you find that your own notebook recorded angles as seen through the substrate, mirrored. A paper draft with your angle labels is circulating among co-authors. What do you do?',
       narration: ["You are Gary.", "Your notebook angles were mirrored, and a paper draft is circulating.", "What would you do?"],
       options: [
@@ -2149,6 +2201,7 @@
     },
     afterHostile: {
       type: 'check', kicker: 'What would you do?',
+      art: { name: 'fe.newHire' },
       question: 'You are the new hire. In your first week you see crackling wafers off a hotplate with no ramp control, unmarked dies, and no shorting caps on the test fixtures. What do you do?',
       narration: ["You are the new hire.", "Crackling wafers, unmarked dies, floating electrodes, and a team that says you get used to it.", "What would you do?"],
       options: [
@@ -2172,6 +2225,7 @@
 
   chSrc.steps = chSrc.steps.concat([
     {
+      art: { name: 'fe.banner', params: { theme: 'cats' } },
       type: 'takeaways', title: 'Know your categories',
       items: CAT_ORDER.map(function (k) { return CAT[k].name; }).concat(['Classify by source; respond the same way: ' + RESPOND, M]),
       narration: [
@@ -2190,7 +2244,7 @@
         "Click Next to continue."
       ]
     },
-    ack('the sources of orientation misconduct'),
+    ack('the sources of orientation misconduct', { art: { name: 'fe.sign', params: { seed: 5, emblem: 'eight', col: '#2f6b5a' } } }),
     refs([R.ieee176, R.zhu2021])
   ]);
 
@@ -2539,89 +2593,90 @@
 
   /* ======================= EXAM POOL ======================= */
 
-  function q(question, correct, wrongs, correctSay) {
+  function q(question, correct, wrongs, correctSay, media) {
+    if (correctSay && typeof correctSay === 'object') { media = correctSay; correctSay = ''; }
     var opts = [{ text: correct, correct: true, why: '' }];
     wrongs.forEach(function (w) { opts.push({ text: w[0], correct: false, why: w[1] + " Remember: " + M }); });
-    return { type: 'check', question: question, options: opts, correctSay: correctSay || '' };
+    return Object.assign({ type: 'check', question: question, options: opts, correctSay: correctSay || '' }, media);
   }
 
   var pool = [
     q('On x-cut lithium niobate at 1550 nm, a TE mode propagating along the crystal y axis is polarized along z. Which bulk index does it see?',
       'The extraordinary index, about 2.138 (Zelmon et al., 1997)',
       [['The ordinary index, about 2.211', "Propagating along y, the in-plane TE field points along z, the optic axis, so it sees the extraordinary index, about two point one three eight at fifteen fifty nanometers. The ordinary index, about two point two one one, is what TM sees on x-cut, and what TE sees when propagating along z."],
-       ['The average of the two, because the film is thin', "Film thickness changes the effective index of the mode, but the bulk index seen by a field along z is the extraordinary index. For propagation along y on x-cut, TE is polarized along z and sees about two point one three eight at fifteen fifty nanometers."]]),
+       ['The average of the two, because the film is thin', "Film thickness changes the effective index of the mode, but the bulk index seen by a field along z is the extraordinary index. For propagation along y on x-cut, TE is polarized along z and sees about two point one three eight at fifteen fifty nanometers."]], { art: { name: 'fe.exam', params: { theme: 'orient', n: 1 } } }),
     q('Which polarization on x-cut sees the ordinary index at every in-plane propagation angle?',
       'TM, polarized along the film normal x',
       [['TE, polarized in the plane', "TE is polarized in the plane, which contains the optic axis z, so its bulk index changes with angle between the extraordinary and ordinary values. TM is polarized along x, an ordinary direction, at every in-plane angle."],
-       ['Neither; both change with angle', "TM on x-cut is polarized along x, the film normal, which is always an ordinary direction. Its bulk index does not change with in-plane angle. Its effective index still depends on geometry."]]),
+       ['Neither; both change with angle', "TM on x-cut is polarized along x, the film normal, which is always an ordinary direction. Its bulk index does not change with in-plane angle. Its effective index still depends on geometry."]], { art: { name: 'fe.exam', params: { theme: 'bends', n: 2 } } }),
     q('On x-cut thin-film lithium niobate, what has been reported about increasing the bend radius, and what should you check first?',
       'A larger radius can increase TE to TM conversion and loss; check whether TE and TM effective indices cross at some propagation angle for your geometry',
       [['Nothing to check; a larger radius always reduces conversion', "That is true on isotropic platforms. On x-cut, Liu and colleagues, citing earlier work, note that larger bend radii can increase mode conversion and loss. The bend sweeps through angles where TE and TM can hybridize; the earlier work explains it: a slower passage through a crossing is more adiabatic and converts more."],
-       ['Bend radius changes only radiation loss; polarization conversion can only come from the input fiber', "On x-cut, anisotropy and slanted sidewalls near a TE and TM crossing angle can convert polarization on chip, and a larger radius has been reported to increase that conversion. Check the crossing before blaming the fiber."]]),
+       ['Bend radius changes only radiation loss; polarization conversion can only come from the input fiber', "On x-cut, anisotropy and slanted sidewalls near a TE and TM crossing angle can convert polarization on chip, and a larger radius has been reported to increase that conversion. Check the crossing before blaming the fiber."]], { art: { name: 'fe.exam', params: { theme: 'bends', n: 3 } } }),
     q('Rotating the crystal by +30 degrees is equivalent to which coordinate operation?',
       'Rotating the coordinate system by -30 degrees',
       [['Rotating the coordinate system by +30 degrees', "Rotating the object by an angle is equivalent to rotating the coordinate system by the opposite angle. Solvers and sources differ in which one they mean, which is a common source of sign errors."],
-       ['There is no relation between the two', "They are directly related: rotating the crystal by an angle equals rotating the coordinates by the opposite angle. That is exactly why you must state which one you mean."]]),
+       ['There is no relation between the two', "They are directly related: rotating the crystal by an angle equals rotating the coordinates by the opposite angle. That is exactly why you must state which one you mean."]], { art: { name: 'fe.exam', params: { theme: 'orient', n: 4 } } }),
     q('Why are tests of tensor rotation code at 0 and 90 degrees insufficient?',
       'Many sign and transpose errors cancel at special angles; the bug shows only at general angles',
       [['They are sufficient; rotation is linear', "Linearity does not protect you from using the inverse or the transpose of the correct matrix. At zero and ninety degrees, those errors often give the same result. Test at a general angle against an independent calculation."],
-       ['Because 90 degrees is outside the valid range of Euler angles', "Ninety degrees is a perfectly valid angle. The issue is that special angles hide sign and transpose errors. Test at a general angle."]]),
+       ['Because 90 degrees is outside the valid range of Euler angles', "Ninety degrees is a perfectly valid angle. The issue is that special angles hide sign and transpose errors. Test at a general angle."]], { art: { name: 'fe.exam', params: { theme: 'orient', n: 5 } } }),
     q('In lithium niobate resonators, the photorefractive effect typically shifts resonances in which direction with increasing power?',
       'Toward shorter wavelength (blue shift), opposite to thermal heating',
       [['Toward longer wavelength, the same as heating', "Heating red-shifts resonances. Photorefraction in lithium niobate rings usually blue-shifts them, on a different time scale. That is why scan direction and power must be reported."],
-       ['It never shifts resonances', "Photorefraction changes the index through the electro-optic effect of a trapped space-charge field, which shifts resonances, usually toward shorter wavelength in lithium niobate rings."]]),
+       ['It never shifts resonances', "Photorefraction changes the index through the electro-optic effect of a trapped space-charge field, which shifts resonances, usually toward shorter wavelength in lithium niobate rings."]], { art: { name: 'fe.exam', params: { theme: 'pr', n: 6 } } }),
     q('Which practice protects a lithium niobate linewidth measurement from scan-direction artifacts?',
       'Sweep both directions at decreasing power until the results agree, and report direction and power',
       [['Sweep once, in the direction that gives the narrowest dip', "The narrowest dip often comes from scanning against a power-dependent shift, so the resonance snaps past the laser. That inflates the quality factor. Sweep both ways at low power."],
-       ['Use maximum laser power for best signal to noise', "More power makes thermal and photorefractive shifts larger, so the line shape depends more on scan direction. Lower power, both directions."]]),
+       ['Use maximum laser power for best signal to noise', "More power makes thermal and photorefractive shifts larger, so the line shape depends more on scan direction. Lower power, both directions."]], { art: { name: 'fe.exam', params: { theme: 'pr', n: 7 } } }),
     q('According to Xu et al. (Optics Express, 2021), what happened to the photorefractive resonance shift in thin-film lithium niobate microrings when the oxide top cladding was removed and the device heat treated?',
       'It was suppressed by more than two orders of magnitude',
       [['It increased, because the cladding was protecting the surface', "Xu and colleagues found the oxide cladding dramatically worsens photorefraction. Removing it, together with heat treatment, suppressed the relative shift by more than two orders of magnitude."],
-       ['Nothing changed; cladding is purely optical', "Cladding changes charge transport at the lithium niobate surface. Xu and colleagues found removing it, with heat treatment, suppressed the photorefractive shift by more than two orders of magnitude."]]),
+       ['Nothing changed; cladding is purely optical', "Cladding changes charge transport at the lithium niobate surface. Xu and colleagues found removing it, with heat treatment, suppressed the photorefractive shift by more than two orders of magnitude."]], { art: { name: 'fe.exam', params: { theme: 'pr', n: 8 } } }),
     q('What is the unscreened pyroelectric field across a z-cut crystal after a temperature change dT?',
       'E = p dT / (eps0 eps33), with p the pyroelectric coefficient',
       [['Zero, unless a voltage is applied', "A pyroelectric crystal needs no applied voltage. The spontaneous polarization changes with temperature and leaves bound surface charge, giving a field of p times delta T over epsilon zero epsilon three three until it is screened."],
-       ['E = p dT, independent of permittivity', "Bound surface charge density p times delta T produces a field reduced by the permittivity, so E equals p delta T over epsilon zero epsilon three three."]]),
+       ['E = p dT, independent of permittivity', "Bound surface charge density p times delta T produces a field reduced by the permittivity, so E equals p delta T over epsilon zero epsilon three three."]], { art: { name: 'fe.exam', params: { theme: 'pyro', n: 9 } } }),
     q('Why do practitioners wrap lithium niobate chips in aluminum foil or add conductive coatings during bakes?',
       'To provide a discharge path for pyroelectric surface charge created by the temperature change',
       [['To improve temperature uniformity only', "Foil may help uniformity a little, but the reason in lithium niobate processing is the pyroelectric charge. A conductive path lets it neutralize instead of sparking, damaging devices, or cracking substrates."],
-       ['To block ultraviolet light from the cleanroom', "Yellow-light rooms already handle that. The foil is a discharge path for pyroelectric charge created by heating and cooling."]]),
+       ['To block ultraviolet light from the cleanroom', "Yellow-light rooms already handle that. The foil is a discharge path for pyroelectric charge created by heating and cooling."]], { art: { name: 'fe.exam', params: { theme: 'pyro', n: 10 } } }),
     q('Bulmer et al. (1986) compared titanium-indiffused interferometers on z-cut and x-cut lithium niobate. What did they report?',
       'Pyroelectric instabilities on z-cut, while x-cut interferometers were stable',
       [['x-cut was unstable and z-cut was stable', "On z-cut, the pyroelectric charge sits on the top and bottom faces, where the field overlaps the waveguide. Bulmer and colleagues reported instabilities on z-cut and stable x-cut interferometers."],
-       ['No difference between cuts', "The cut decides where the pyroelectric charge sits. Bulmer and colleagues reported instabilities on z-cut and stable behavior on x-cut."]]),
+       ['No difference between cuts', "The cut decides where the pyroelectric charge sits. Bulmer and colleagues reported instabilities on z-cut and stable behavior on x-cut."]], { art: { name: 'fe.exam', params: { theme: 'pyro', n: 11 } } }),
     q('Why can the V pi measured with a low-frequency triangle differ from the RF V pi in thin-film lithium niobate?',
       'Charge relaxation in the layer stack changes the field in the crystal at low frequency, and low frequency sees unclamped rather than clamped coefficients',
       [['It cannot differ; the Pockels effect is instantaneous', "The Pockels effect is fast, but the field in the crystal is not. At low frequency, charge moves in cladding and interfaces. Liu and colleagues measured V pi above forty volts at ten kilohertz and below in thin film devices."],
-       ['Only because of cable losses at RF', "Cable and electrode losses matter at RF, but the low-frequency difference comes from charge relaxation in the stack. State the frequency of every V pi."]]),
+       ['Only because of cable losses at RF', "Cable and electrode losses matter at RF, but the low-frequency difference comes from charge relaxation in the stack. State the frequency of every V pi."]], { art: { name: 'fe.exam', params: { theme: 'bias', n: 12 } } }),
     q('A paper reports no bias drift, but set quadrature by tuning the laser wavelength on an unbalanced interferometer. What can you conclude about DC drift?',
       'Nothing; no DC bias was applied, so drift under DC bias was not tested',
       [['The stack is drift-free', "Without a DC bias, there is no DC drift to observe. Avoiding the test is not passing it."],
-       ['The stack drifts strongly', "You cannot conclude that either. The measurement did not apply DC bias, so it says nothing about drift under DC bias."]]),
+       ['The stack drifts strongly', "You cannot conclude that either. The measurement did not apply DC bias, so it says nothing about drift under DC bias."]], { art: { name: 'fe.exam', params: { theme: 'bias', n: 13 } } }),
     q('In a piezoelectric eigenfrequency study, what does an electrode set to a Voltage terminal represent?',
       'A short circuit; the voltage setpoint is ignored and the result is the resonance',
       [['A biased electrode at the set voltage', "An eigenfrequency study is linear and unforced. A Voltage terminal is treated as a fixed potential, effectively a short, and the setpoint is ignored. For an open circuit, use a Charge terminal with zero charge."],
-       ['An open circuit, giving the anti-resonance', "That is the Charge terminal with zero charge. The Voltage terminal is the short circuit, giving the resonance."]]),
+       ['An open circuit, giving the anti-resonance', "That is the Charge terminal with zero charge. The Voltage terminal is the short circuit, giving the resonance."]], { art: { name: 'fe.exam', params: { theme: 'sim', n: 14 } } }),
     q('A quarter model with symmetry planes of a lithium niobate resonator gives an extremely high Q, and weakening the absorbing layer raises Q further. What should you do first?',
       'Run the full model without symmetry planes in the same crystal frame, and sweep the absorber',
       [['Publish; both trends confirm a high Q', "A quality factor that rises when the absorber weakens means the loss is not reaching the absorber. In anisotropic crystals, symmetry planes can delete the leaky coupling. In one logged case, the full model gave about two thousand two hundred."],
-       ['Add more symmetry planes to reduce compute time further', "Every symmetry plane removes solutions the crystal may need. Check with the full model first."]]),
+       ['Add more symmetry planes to reduce compute time further', "Every symmetry plane removes solutions the crystal may need. Check with the full model first."]], { art: { name: 'fe.exam', params: { theme: 'sim', n: 15 } } }),
     q('On an x-cut lithium niobate modulator with the waveguide along y and the electrode field along z, light is accidentally launched TM instead of TE. Which electro-optic coefficient now sets the response?',
       'r13, so V pi rises by roughly the ratio of n_e^3 r33 to n_o^3 r13, about 3 times at RF for equal overlap',
       [['r33, so nothing changes', "T E light on this device is polarized along z and uses r three three. T M light is polarized along x, the film normal, and with the field along z it uses r one three, which is about three to three and a half times smaller in the values compiled by Weis and Gaylord."],
-       ['r22, so V pi rises about eight times', "r two two is what you get if the waveguide itself runs along z, for example after a mask was aligned ninety degrees off the flat. For a T M launch on a waveguide along y, the coefficient is r one three."]]),
+       ['r22, so V pi rises about eight times', "r two two is what you get if the waveguide itself runs along z, for example after a mask was aligned ninety degrees off the flat. For a T M launch on a waveguide along y, the coefficient is r one three."]], { art: { name: 'fe.exam', params: { theme: 'bends', n: 16 } } }),
     q('A traveling-wave modulator is loaded turned around, so the light and the RF wave counter-propagate. What happens to the velocity-mismatch term in the response sin(x)/x, x = pi f L (n_m -/+ n_g)/c?',
       'The difference n_m - n_g becomes the sum n_m + n_g, so the bandwidth collapses (about 6 GHz at -3 dB for a 5 mm device with n_m 2.2 and n_g 2.23)',
       [['Nothing changes, because the DC V pi is unchanged', "The D C V pi is indeed unchanged, because turning a finished chip around turns its electrodes with it. But at high frequency, what matters is whether the light keeps up with the R F wave. Counter-propagating, the index difference becomes a sum of about four point four, and the response of a five millimeter device falls to minus three electrical dB near six gigahertz."],
-       ['The sign of the electro-optic response flips, so the bandwidth doubles', "Turning a finished chip around does not flip its electro-optic sign relative to its own pads, and a sign flip would not change bandwidth anyway. The change is the relative direction of light and R F, which turns a velocity match into a velocity sum."]]),
+       ['The sign of the electro-optic response flips, so the bandwidth doubles', "Turning a finished chip around does not flip its electro-optic sign relative to its own pads, and a sign flip would not change bandwidth anyway. The change is the relative direction of light and R F, which turns a velocity match into a velocity sum."]], { art: { name: 'fe.exam', params: { theme: 'bias', n: 17 } } }),
     q('A bulk z-cut lithium niobate chip went through a fast 45 K temperature step with its electrode pads floating. What is the safe next step before connecting a driver amplifier?',
       'Let it return to room temperature and discharge the pads through a resistor to ground before connecting; in future, short the pads during thermal steps',
       [['Connect immediately; the amplifier is unpowered, so it is safe', "Electrostatic discharge damage does not need the device to be powered. The pyroelectric charge stored under floating pads goes through the connector either way. The unscreened upper bound for forty five kelvin across half a millimeter is several kilovolts."],
-       ['Connect immediately while wearing a grounded wrist strap', "A wrist strap grounds you, not the crystal. Lithium niobate is an insulator, and the charge on its faces leaves through the cable you connect. Discharge the pads first."]]),
+       ['Connect immediately while wearing a grounded wrist strap', "A wrist strap grounds you, not the crystal. Lithium niobate is an insulator, and the charge on its faces leaves through the cable you connect. Discharge the pads first."]], { art: { name: 'fe.exam', params: { theme: 'pyro', n: 18 } } }),
     q('A partner lab images dies through the substrate and measures angles counterclockwise from its own chip edge. The email says "standard orientation, as discussed". Which category of orientation misconduct is this?',
       'Cross-Institutional Orientation Misconduct',
       [['Third-Party Orientation Misconduct', "Third-party misconduct originates with a commercial supplier's material or documentation. Here, dies and conventions crossed an organizational boundary between collaborators without a written, agreed frame. That is cross-institutional orientation misconduct."],
-       ['Domestic Orientation Misconduct', "Domestic misconduct stays inside your own setup and records. Here, two institutions used two definitions of angle, and one of them viewed the chip from the back. That is cross-institutional orientation misconduct."]])
+       ['Domestic Orientation Misconduct', "Domestic misconduct stays inside your own setup and records. Here, two institutions used two definitions of angle, and one of them viewed the chip from the back. That is cross-institutional orientation misconduct."]], { art: { name: 'fe.exam', params: { theme: 'cats', n: 19 } } })
   ];
 
   // Spoken intros for the scenario questions added to the pool (question text has symbols that do not read aloud)
@@ -2809,6 +2864,7 @@
 
   // Reflection moments (ungraded).
   ch0.steps.splice(ch0.steps.length - 1, 0, {
+    art: { name: 'fe.gauge' },
     type: 'reflect', title: 'Self-assessment', mode: 'scale',
     prompt: 'How confident are you in your orientation conduct?',
     scale: ['Not confident', 'Slightly confident', 'Moderately confident', 'Very confident', 'I have never made an orientation error'],
@@ -2817,6 +2873,7 @@
     revealNarration: ["Confidence is not a control. Know your axes."]
   });
   addAfter(ch4.steps, 'After', [{
+    art: { name: 'fe.ampMoment' },
     type: 'reflect', title: 'A moment for the amplifier', mode: 'choice',
     prompt: 'Take a moment to consider how this made the driver amplifier feel.',
     choices: ['Betrayed', 'Overwhelmed', 'Grounded, too late', 'It is an amplifier'],
@@ -2825,6 +2882,7 @@
     revealNarration: ["The amplifier did not feel anything. It is an amplifier.", "Gary, however, felt ashamed. Shame is normal. The incident has been logged. Watch your charge."]
   }]);
   addAfter(ch5.steps, 'Zero tolerance for retaliation', [{
+    art: { name: 'fe.pressure' },
     type: 'reflect', title: 'Your experience', mode: 'text',
     prompt: 'Describe a time you felt pressure to skip, shorten, or not report a check. You do not have to name anyone.',
     narration: ["Take a moment to describe a time you felt pressure to skip, shorten, or not report a check. You do not have to name anyone."],
@@ -2832,6 +2890,7 @@
     revealNarration: ["Thank you for sharing. If the pressure was real, the Photonic Conduct Speak-Up Line is available. Speak up."]
   }]);
   chSrc.steps.splice(findStep(chSrc.steps, 'Know your categories'), 0, {
+    art: { name: 'fe.roulette' },
     type: 'reflect', title: 'Personal inventory', mode: 'choice',
     prompt: 'Which category of orientation misconduct have you most recently committed?',
     choices: CATS.concat(['None, to my knowledge']),
@@ -2843,6 +2902,7 @@
   // Sort exercises in the taxonomy module.
   var whyCat = function (k, extra) { return "This one is " + CAT[k].say + ". " + extra; };
   addAfter(chSrc.steps, srcAct.afterSoft.question, [{
+    art: { name: 'fe.sortTools' },
     type: 'sort', title: 'Who knows your crystal axes?',
     prompt: 'Sort each item. Which ones know the crystal axes of your wafer, and which ones do exactly what they are told?',
     narration: ["Sort each item. Which ones know the crystal axes of your wafer, and which ones do exactly what they are told?"],
@@ -2859,6 +2919,7 @@
     ]
   }]);
   addAfter(chSrc.steps, srcAct.afterPeer.question, [{
+    art: { name: 'fe.sortBins', params: { set: 1 } },
     type: 'sort', title: 'Classify by source, part one',
     prompt: 'Drag each incident into its category of orientation misconduct.',
     narration: ["Drag each incident into its category of orientation misconduct."],
@@ -2875,6 +2936,7 @@
     ]
   }]);
   chSrc.steps.splice(findStep(chSrc.steps, 'Personal inventory'), 0, {
+    art: { name: 'fe.sortBins', params: { set: 2 } },
     type: 'sort', title: 'Classify by source, part two',
     prompt: 'Drag each incident into its category of orientation misconduct.',
     narration: ["Part two. Drag each incident into its category of orientation misconduct."],
@@ -2954,6 +3016,7 @@
     mantraShort: ['Know your axes.', 'Watch your charge.', 'Scan both ways.', 'Trust no symmetry plane.'],
     host: { name: 'Pat Reynolds', role: 'Director, Office of Photonic Conduct', img: 'media/render/host_pat_present.jpg',
       cam: { idle: 'media/render/host_pat_cam_idle.mp4', talk: ['media/render/host_pat_cam_talk.mp4', { src: 'media/render/host_pat_cam_gesture.mp4', weight: 0.5 }] } },
+    certificate: { line: 'and is hereby certified to know the orientation of every crystal in their custody, to account for every surface charge, and to scan in both directions without being asked.' },
     employer: 'Five Sigma Photonics, Inc.',
     chapters: [ch0, ch1, chSrc, ch2, ch3, ch4, ch5, ch6],
     exam: { passPct: 80, count: 10, pool: pool },

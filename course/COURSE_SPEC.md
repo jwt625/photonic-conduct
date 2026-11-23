@@ -24,6 +24,7 @@ window.LMS_COURSES['<id>'] = {
   mantra: 'Long mantra sentence.',           // repeated everywhere (ticker, takeaways, interstitials)
   mantraShort: ['Word.', 'Word.', 'Word.'],  // 3-4 beats, shown as chips
   host: { name: 'Pat Reynolds', role: 'Director, Office of Photonic Conduct' },
+  certificate: { line: 'and is hereby certified to ...', variant: 'A' },  // optional, see Certificate
   chapters: [ { id, title, subtitle, objectives: ['...'], steps: [ Step, ... ] } ],
   exam: { passPct: 80, count: 10, pool: [ CheckStep, ... ] },
   references: [ { cite: 'Author et al., Journal Vol, page (Year)', doi: '10.xxxx/...' } ],
@@ -110,7 +111,7 @@ Quiz behavior (engine): correct -> voice "That's right!" + `correctSay`. Wrong -
 | `video` (extended) | a keyframe may have `image: { src }` (still with slow push-in) instead of `draw` | as before |
 
 Engine details (as implemented 2026-11-22):
-- Optional extras: `slide` hero shows `kicker` (light-fill tag, default "Module N"), `heading || title`, `subtitle` on the band; split shows `kicker`, `heading`, `bullets`, `callout`. A `bullets` slide with `image` renders as split. Any `image` may carry `kb` (Ken Burns, same format as `photo.kb`); hero / split / photo default to a slow push-in.
+- Optional extras: `slide` hero shows `kicker` (light-fill tag, default "Module N"), `heading || title`, `subtitle` on the band; split shows `kicker`, `heading`, `bullets`, `callout`. A `bullets` slide with `image` gets the right-side media panel (see "Media on every step" below). Any `image` may carry `kb` (Ken Burns, same format as `photo.kb`); hero / split / photo default to a slow push-in.
 - Spoken sequences: check / cards choose wrong = "Not quite. ..." + `why` split into sentences + "Please try again."; correct = "That's right!" + `correctSay` (or the correct item's `why`) split into sentences; a `cards` item's `narration` is spoken before its verdict. `spot` hit = "Hazard identified." + `why` sentences (+ "You have identified every hazard. Thank you for speaking up." after the last); miss = `missWhy` sentences (generic fixed line if absent). Exam result and certificate lines are fixed sentences; the score is shown on screen only.
 - `hotspots` / `spot` images keep their true aspect (registry `w`, `h`) so 0..1 coordinates map onto the picture. Keep `callout` spots apart (labels sit up-right of the point, or up-left when `x > 0.6`, below when `y < 0.22`).
 - Registry `credit` is printed verbatim in the final disclaimer step's media credits list (and the dev overlay), so put the license in `credit`.
@@ -209,3 +210,55 @@ Style rule: the three interactive families (hotspots, cards, spot) must look cle
 ### Start screen backdrop
 
 The start screen shows each chapter's cover (the first step in the chapter with `image.src`) cross-fading in chapter order with a slow push-in and a small module label; text sits on a veil in the theme background color. `prefers-reduced-motion`: first cover only, no motion.
+
+## Media on every step: image and art panels, chapter cover fallback (engine, 2026-11-23)
+
+### Contract
+
+- Any step may carry `image: { src, alt?, kb? }` (photo panel; `kb` as in `photo.kb`, default a slow push-in) and / or `art: { name, params?, alt? }` (looping code-drawn canvas panel). Art wins over image; the image is the fallback when the art function is missing or throws.
+- Art functions live in `anims/*.js` (content lanes: `anims/art_fe.js`, `anims/art_fb.js`), loaded by `player.html` before the course files:
+  `window.LMS_DRAW.art['fe.something'] = function (ctx, w, h, t, params) { ... }`
+  - Called every animation frame. `w`, `h` are the panel size in CSS pixels; the context is already scaled by `devicePixelRatio` and cleared before each call, so draw in CSS pixels and paint your own background (a transparent canvas shows the theme panel color).
+  - `t` = seconds the panel has been playing (starts at 0 when it first shows, frozen while paused). Loop forever: make the drawing periodic in `t`.
+  - `params` = the step's `art.params` (or `{}`). Panel aspect varies by slot and screen width (wide banner, tall side panel, short phone panel): lay out relative to `w` and `h`. Read theme colors with `getComputedStyle(document.documentElement).getPropertyValue('--accent')` if needed; the light / dark toggle triggers a repaint.
+  - Keep it cheap (one panel, 60 fps). No text that needs math markup (canvas is not rendered by KaTeX); labels minimal.
+- The engine stops the loop on step change, freezes it while the course is paused (blur / idle / video pause) or the tab is hidden or the panel is not displayed, and resizes the canvas with the panel. `prefers-reduced-motion: reduce`: one still frame at `t = 2`, repainted on resize and theme change.
+- `art.alt` (optional) becomes the canvas `aria-label`; without it the canvas is `aria-hidden`.
+
+### Placement (slot by step type; `LMS_mediaSlot` in `engine/speech_lines.js`)
+
+| Step | Slot | Desktop | Phone (820 px and below) |
+|---|---|---|---|
+| `slide` `bullets` / `policy` / `title` | split | text left, panel right (about 40 percent), bleeding to the stage edge, full stage height | panel on top, 150 to 220 px tall |
+| `slide` `title` with `image` and no `art` | hero | unchanged (full-bleed photo, title band) | unchanged |
+| `check` (incl. exam questions) | kc-split | panel left of the question (4:3) | panel on top, 150 to 240 px tall |
+| `takeaways`, `refs` | banner | full-width banner above the content, 180 to 220 px tall | 130 to 180 px |
+| `ack`, `reflect`, `sort` | side | content left, panel right (about 38 percent), sticky while the content scrolls | panel on top, 150 to 220 px tall |
+| `reveal` | banner above the tabs | shown while no tab is open or the open tab has no `media`; hidden while a tab with `media` is open | same |
+| `video`, `chat`, `widget`, `photo`, `hotspots`, `spot`, `cards`, `slide` `host` / `hero` / `split` | none | visual already; `art` and a step-level `image` are not shown there (validator warning) | |
+| exam result, certificate, disclaimer, start screen | none | exempt | |
+
+- A `bullets` slide with `image` now gets the right-side panel (it used to become a left-photo split; use `layout: 'split'` for that look). `bullets` slides also show `heading` when set.
+- Images registered with `kind: 'figure'` (literature figures) show whole on a white panel (`contain`, no push-in unless `kb` is given); other images fill the panel (`cover`).
+- A stage image (`stages[].image`) swaps into the step's photo in split, side and check panels, as for photo / hero / split slides.
+
+### Fallback (every step has media)
+
+- A step with a slot and neither `image` nor `art` (reveal: and at least one tab without `media`) shows its chapter cover in the same panel slot with a slow push-in (scale 1.0 to 1.1). Chapter cover = the first step image in the chapter (as on the start screen); a chapter without one uses the nearest earlier chapter's cover, else the course's first. Exam questions rotate through the chapter covers (question n uses cover n mod count).
+- A step with `art` whose function is missing (or throws) shows its `image`, else the chapter cover.
+- Dev mode: the image overlay labels fallback panels "chapter cover fallback" and art panels "art: name".
+
+### Validator rules
+
+- `art` must be `{ name, params?, alt? }`; error if `art.name` is not defined in `window.LMS_DRAW.art` after loading `anims/*.js`; `params` must be an object.
+- `image` on any step: `src` must exist under `course/` and be registered in the media registry with a credit (as all images); `kb` must be `[x0, y0, s0, x1, y1, s1]`.
+- Warning "media fallback" for each step (chapters and exam pool) that would show the chapter cover, with the step's type, cover and title; a summary line per course: `<id> media fallback N steps (a in chapters, b in the exam pool): <type> <count>, ...`. Content lanes drive N to zero.
+- Warning when `art` or a step-level `image` sits on a step type without a slot.
+
+## Certificate (engine, 2026-11-23)
+
+- Renderer: `engine/certificate.js` (classic script, loaded by `player.html`). `window.LMS_CERT.render(variant, data, opts)` returns an SVG string, US Letter landscape (`width="11in" height="8.5in"`, viewBox 1100 x 850). `data = { name, courseTitle, courseCode, date (ISO), certNo, hours, policy, host: { name, role }, mantra[], line }`; `LMS_CERT.fromCourse(course, { name, date, certNo })` builds it (hours = minutes in `duration` / 60, one decimal; `mantra` = `mantraShort`). Everything (frames, guilloche, seal, ribbons, emblem, laurel, microtext, signatures) is drawn in code; the signatures are spline strokes, not a font.
+- Variants: `A` classic diploma, `B` Victorian engraved, `C` modern corporate award, `D` banknote and bond. Chosen by `course.certificate.variant`, else `LMS_CONFIG.certVariant` (`engine/config.js`), else `A`. Review page: `research/certificate_samples/index.html`.
+- Course field (optional): `certificate: { line: 'and is hereby certified to ...', variant: 'A' }`. `line` is the one course-specific sentence printed under the course title (generic fallback if absent). No disclaimers on the certificate itself; the disclaimer step covers it.
+- Fonts: SIL OFL faces in `engine/vendor/fonts/<Family>/` (woff2 plus `OFL.txt`): UnifrakturMaguntia, Pinyon Script, Great Vibes, Cinzel Decorative (400, 700), IM Fell English (regular, italic). `node tools/build_cert_fonts.js` regenerates `engine/vendor/fonts/cert_fonts_data.js` (base64), which `LMS_CERT.ensureFonts()` loads on demand and registers with `FontFace`, so it works from `file://` and http without a CDN. PNG export embeds the used faces in the SVG as data URIs (an SVG drawn through `<img>` cannot see page fonts). Latin and Latin Extended only (script faces); other scripts fall back to the next family in the stack.
+- Certificate step: name from `state.name` (acknowledgement step), fallback `Valued Team Member`; certificate number (`<code>-<6 chars>`) and issue date are fixed in `state` for the session; verification code is derived from number, name and date; valid through = issue date plus one year. Buttons: `Download certificate (PNG)` (3300 x 2550, US Letter at 300 dpi, file `FiveSigma_<code>_Certificate_<Name>.png`) and `Print / Save as PDF` (while the step is shown, print output is the certificate alone on one Letter landscape page, `@page` margin 0). On screens up to 820 px wide, tapping the certificate toggles a 1100 px wide pannable view. Narration (`SP.certificate`) and the `certificate` sound effect are unchanged.

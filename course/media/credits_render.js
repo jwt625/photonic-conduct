@@ -206,5 +206,50 @@ window.LMS_MEDIA = Object.assign(window.LMS_MEDIA || {}, {
     "kind": "video",
     "w": 600,
     "h": 800
+  },
+  "media/render/cast_gary.jpg": {
+    "alt": "Clay-style portrait of Gary in the Five Sigma Photonics office: dark hair, thick brows and a confident grin, safety glasses pushed up on his forehead, a cream t-shirt under blue bib overalls with brass buckles and a red pen in the bib pocket",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=gary",
+    "kind": "render",
+    "w": 900,
+    "h": 1200
+  },
+  "media/render/cast_gary_cleanroom.jpg": {
+    "alt": "Clay-style portrait of Gary gowned for the cleanroom: white hood with an elastic face opening, a face mask over nose and mouth, clear safety glasses, and a white coverall zipped up to the chin with GARY written on the chest in blue",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=gary_suit",
+    "kind": "render",
+    "w": 900,
+    "h": 1200
+  },
+  "media/render/cast_morgan.jpg": {
+    "alt": "Clay-style portrait of Morgan, Gary's manager, in the Five Sigma Photonics office: parted brown hair, a half-lidded satisfied smile, navy suit, white shirt and red tie",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=morgan",
+    "kind": "render",
+    "w": 900,
+    "h": 1200
+  },
+  "media/render/cast_dana.jpg": {
+    "alt": "Clay-style portrait of Dana Okafor, Gary's labmate, in the Five Sigma Photonics office: dark brown skin, natural curly hair, round brown glasses, a warm smile, a teal sweater and an orange lanyard with a badge",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=dana",
+    "kind": "render",
+    "w": 900,
+    "h": 1200
+  },
+  "media/render/cast_crystal_ln_wafer.jpg": {
+    "alt": "A 100 mm lithium niobate device wafer, milky with a lapped back and a grid of gold modulator dies on its polished front, standing on its primary flat in a black wafer stand on a walnut desk; a white scribed arrow marked +Z points up, away from the flat",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=crystal",
+    "kind": "render",
+    "w": 900,
+    "h": 1200
   }
 });

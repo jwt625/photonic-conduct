@@ -1,7 +1,7 @@
-/* Chat profile pictures (media/avatars/). Keys are exact chat names (message from, participants, chat headers); aliases are matched case-insensitively. Code-drawn portraits and emblems; non-face photos and a hooded cleanroom crop from Wikimedia Commons (credits in credits_avatars.js). 2026-11-22. Mail fields (engine, 2026-11-22): email (fictional domains), title and org for the mail signature block. */
+/* Chat profile pictures (media/avatars/). Keys are exact chat names (message from, participants, chat headers); aliases are matched case-insensitively. Code-drawn portraits and emblems; non-face photos and a hooded cleanroom crop from Wikimedia Commons (credits in credits_avatars.js). 2026-11-22. Mail fields (engine, 2026-11-22): email (fictional domains), title and org for the mail signature block. 2026-11-23: Gary, Dana and Morgan use 256 px crops of the Blender cast portraits (tools/blender/shot_cast.py); the earlier files stay in media/avatars/ unused. */
 window.LMS_CAST = Object.assign(window.LMS_CAST || {}, {
   "Gary": {
-    "avatar": "media/avatars/gary_bunnysuit.jpg",
+    "avatar": "media/avatars/gary_cleanroom_render.jpg",
     "aliases": [
       "Notes to self",
       "Gary (Engineer)",
@@ -12,7 +12,7 @@ window.LMS_CAST = Object.assign(window.LMS_CAST || {}, {
     "org": "Five Sigma Photonics, Inc."
   },
   "Dana Okafor (Labmate)": {
-    "avatar": "media/avatars/dana_okafor.jpg",
+    "avatar": "media/avatars/dana_render.jpg",
     "aliases": [
       "Dana",
       "Dana Okafor",
@@ -24,7 +24,7 @@ window.LMS_CAST = Object.assign(window.LMS_CAST || {}, {
     "org": "Five Sigma Photonics, Inc."
   },
   "Morgan (Manager)": {
-    "avatar": "media/avatars/morgan_manager.jpg",
+    "avatar": "media/avatars/morgan_render.jpg",
     "aliases": [
       "Manager",
       "Morgan",

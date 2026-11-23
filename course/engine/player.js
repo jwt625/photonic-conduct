@@ -655,7 +655,7 @@
     const btn = h('button', { class: 'btn primary stg-btn hidden' });
     const actions = h('div', { class: 'stg-actions' }, btn);
     put(body, wrap, actions);
-    const baseImg = body.querySelector('.photo-fig img, .hero-fig img, .split-fig img, .kc-fig img');
+    const baseImg = body.querySelector('.photo-fig img, .hero-fig img, .split-fig img, .kc-fig img, .mp-split-fig img, .mp-side-fig img');
     const ctl = { next: 0, cur: -1, busy: false };
     btn.addEventListener('click', () => ctl.open(ctl.next));
     ctl.check = () => {
@@ -851,9 +851,94 @@
   }
   const ltag = (text, kind) => h('span', { class: 'ltag' + (kind ? ' ' + kind : '') }, text);
 
+  /* ---------- media panels: image: { src, alt, kb } or art: { name, params } on any step; chapter cover fallback ----------
+     Slot by step type from LMS_mediaSlot (engine/speech_lines.js). Art wins over image; a missing art function falls back to
+     the image, else to the chapter cover. A step with neither (and not visual already) shows its chapter cover with a slow push-in.
+     Art: window.LMS_DRAW.art[name](ctx, w, h, t, params) every animation frame; w, h in CSS pixels (the context is pre-scaled by
+     devicePixelRatio and cleared before each call); t = seconds the panel has been playing. Frozen while the course is paused, the
+     tab is hidden or the panel is not displayed; one still frame at t = 2 under prefers-reduced-motion; stopped on step change.
+     If the art function throws, the panel switches to the image or the chapter cover. */
+  const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const artFn = (art) => { const A = window.LMS_DRAW && window.LMS_DRAW.art; return art && art.name && A && typeof A[art.name] === 'function' ? A[art.name] : null; };
+  function stepCover(st, f) {
+    if (st.exam) return window.LMS_examCover ? window.LMS_examCover(course, (st.examNo || 1) - 1) : null;
+    return window.LMS_coverFor ? window.LMS_coverFor(course, f.ci) : null;
+  }
+  function mediaPanel(st, f, cls, lines) {
+    const fn = artFn(st.art);
+    const img = st.image && st.image.src ? st.image : null;
+    const wantCover = !fn && !img && (!!(st.art && st.art.name) || (typeof window.LMS_needsFallback === 'function' && window.LMS_needsFallback(st)));
+    if (!fn && !img && !wantCover) return null;
+    const still = () => { if (img) return { im: img, cover: false }; const c = stepCover(st, f); return c ? { im: { src: c }, cover: true } : null; };
+    const imageFig = (s) => {
+      const m = mediaInfo(s.im.src) || {};
+      const isFig = m.kind === 'figure'; /* literature figures: whole figure on white, no crop */
+      const r = figure(s.im, { cls: 'mp-fig ' + cls + (s.cover ? ' mp-cover' : '') + (isFig ? ' mp-figure' : '') });
+      r.fig.dataset.media = s.cover ? 'cover' : 'image';
+      if (DEV && s.cover) { const dp = r.fig.querySelector('.devpath'); if (dp) dp.textContent = 'chapter cover fallback  |  ' + dp.textContent; }
+      if (!isFig || s.im.kb) kenBurns(r.img, s.cover ? [0.5, 0.5, 1.0, 0.5, 0.5, 1.1] : (s.im.kb || st.kb || [0.5, 0.5, 1.0, 0.5, 0.5, 1.05]), lines);
+      return r.fig;
+    };
+    if (fn) return artFigure(st.art, fn, cls, (fig) => { const s = still(); if (s) fig.replaceWith(imageFig(s)); else fig.remove(); });
+    const s = still();
+    return s ? imageFig(s) : null;
+  }
+  function artFigure(art, fn, cls, onFail) {
+    const canvas = h('canvas', { class: 'mp-canvas' });
+    if (art.alt) { canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', plainMath(stripHtml(art.alt))); } else canvas.setAttribute('aria-hidden', 'true');
+    const fig = h('figure', { class: 'media mp-fig mp-art ' + cls, 'data-media': 'art', 'data-art': art.name }, canvas);
+    if (DEV) fig.append(h('span', { class: 'devpath' }, 'art: ' + art.name));
+    const ctx = canvas.getContext('2d');
+    const still = reducedMotion();
+    const params = art.params || {};
+    let t = 0, last = 0, raf = 0, dead = false, W = 0, H = 0, dpr = 1, dirty = true;
+    function size() {
+      const w = fig.clientWidth, hh = fig.clientHeight, d = window.devicePixelRatio || 1;
+      if (!w || !hh) return false; /* not displayed (hidden reveal panel, detached) */
+      if (w !== W || hh !== H || d !== dpr) { W = w; H = hh; dpr = d; canvas.width = Math.round(w * d); canvas.height = Math.round(hh * d); dirty = true; }
+      return true;
+    }
+    function paint() {
+      try {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+        ctx.save(); fn(ctx, W, H, still ? 2 : t, params); ctx.restore();
+      } catch (e) {
+        console.error('art "' + art.name + '" failed:', e);
+        stop(); if (onFail) onFail(fig); return;
+      }
+      dirty = false;
+    }
+    function frame(now) {
+      raf = 0;
+      if (dead) return;
+      const dt = last ? Math.min(0.1, Math.max(0, (now - last) / 1000)) : 0;
+      last = now;
+      if (size()) {
+        if (!still && state.pauseReasons.size === 0 && !document.hidden) { t += dt; paint(); }
+        else if (dirty) paint(); /* paused or reduced motion: repaint only after a resize or theme change */
+      }
+      if (!dead && !still) raf = requestAnimationFrame(frame);
+    }
+    /* reduced motion: no loop; resize and theme changes repaint the still frame */
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!still) dirty = true; else if (size() && dirty) paint(); }) : null;
+    if (ro) ro.observe(fig);
+    const mo = new MutationObserver(() => { dirty = true; if (still && size()) paint(); });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    function stop() { dead = true; if (raf) cancelAnimationFrame(raf); raf = 0; if (ro) ro.disconnect(); mo.disconnect(); }
+    cleanups.push(stop);
+    raf = requestAnimationFrame(frame);
+    return fig;
+  }
+  /* side slot (ack, reflect, sort): content left, media panel right; content only when there is no panel */
+  function sidePut(body, st, f, lines, ...nodes) {
+    const pan = mediaPanel(st, f, 'mp-side-fig', lines);
+    if (pan) put(body, h('div', { class: 'mp-side' }, put(h('div', { class: 'mp-main' }), ...nodes), pan));
+    else put(body, ...nodes);
+  }
+
   R.slide = (body, st, f, sess) => {
     let layout = st.layout || 'bullets';
-    if (st.image && st.image.src && (layout === 'bullets' || layout === 'title') && layout !== 'hero') layout = layout === 'title' ? 'hero' : 'split';
+    if (st.image && st.image.src && layout === 'title' && !artFn(st.art)) layout = 'hero'; /* title + image = hero; bullets / policy / title with image or art get the media panel below */
     const callout = st.callout ? h('div', { class: 'callout', html: st.callout }) : null;
     if (layout === 'hero' && st.image) {
       const { fig, img } = figure(st.image, { cls: 'hero-fig', creditTop: true });
@@ -867,8 +952,16 @@
       const { fig, img } = figure(st.image, { cls: 'split-fig' });
       put(body, h('div', { class: 'split-layout' }, fig, h('div', { class: 'split-text' }, st.kicker ? ltag(st.kicker) : null, st.heading ? h('h3', { class: 'split-h', html: st.heading }) : null, st.bullets ? bulletsList(st.bullets, sess, st.narration) : null, callout)));
       kenBurns(img, st.image.kb || st.kb || [0.5, 0.5, 1.0, 0.5, 0.5, 1.05], st.narration);
-    } else if (layout === 'title') {
-      put(body, h('div', { class: 'slide-title' }, h('div', { class: 'code' }, (course.code || '') + '  |  Version ' + (course.version || '1.0') + '  |  Effective ' + (course.effective || '')), h('h1', { html: st.heading || course.title }), h('p', { html: st.subtitle || course.subtitle || '' }), st.bullets ? bulletsList(st.bullets, sess, st.narration) : null, callout));
+    } else if (layout === 'title' || layout === 'policy' || (layout !== 'host' && layout !== 'hero' && layout !== 'split')) {
+      /* title / policy / bullets: text left, media panel right (art, image, or the chapter cover) */
+      const parts = layout === 'title'
+        ? [h('div', { class: 'slide-title' }, h('div', { class: 'code' }, (course.code || '') + '  |  Version ' + (course.version || '1.0') + '  |  Effective ' + (course.effective || '')), h('h1', { html: st.heading || course.title }), h('p', { html: st.subtitle || course.subtitle || '' }), st.bullets ? bulletsList(st.bullets, sess, st.narration) : null, callout)]
+        : layout === 'policy'
+          ? [h('div', { class: 'policy-doc' }, h('div', { class: 'ph' }, (course.policy || 'POLICY') + '  |  CONTROLLED DOCUMENT  |  DO NOT PARAPHRASE'), st.bullets ? bulletsList(st.bullets, sess, st.narration) : null), callout]
+          : [h('div', { class: 'objectives' }, st.kicker ? h('h3', null, st.kicker) : null, st.heading ? h('h3', { class: 'split-h', html: st.heading }) : null, st.bullets ? bulletsList(st.bullets, sess, st.narration) : null, callout)];
+      const pan = mediaPanel(st, f, 'mp-split-fig', st.narration);
+      if (pan) put(body, h('div', { class: 'mp-split' + (layout === 'title' ? ' is-title' : '') }, h('div', { class: 'mp-text' }, ...parts.filter(Boolean)), pan));
+      else put(body, ...parts);
     } else if (layout === 'host') {
       /* presenter still: step.hostImg overrides course.host.img (string path or { src }); the drawn placeholder is the fallback */
       const hv = st.hostImg || (course.host && course.host.img);
@@ -886,8 +979,6 @@
       if (cam) hostCam(frame, cam, hsrc);
       put(frame, DEV && !hsrc ? h('span', { class: 'placeholder-tag' }, 'PRESENTER FOOTAGE PENDING') : null, h('div', { class: 'lower-third' }, h('b', null, (course.host && course.host.name) || 'Host'), (course.host && course.host.role) || ''));
       put(body, h('div', { class: 'host-layout' }, frame, h('div', null, st.bullets ? bulletsList(st.bullets, sess, st.narration) : null, callout)));
-    } else if (layout === 'policy') {
-      put(body, h('div', { class: 'policy-doc' }, h('div', { class: 'ph' }, (course.policy || 'POLICY') + '  |  CONTROLLED DOCUMENT  |  DO NOT PARAPHRASE'), st.bullets ? bulletsList(st.bullets, sess, st.narration) : null), callout);
     } else {
       put(body, h('div', { class: 'objectives' }, st.kicker ? h('h3', null, st.kicker) : null, st.bullets ? bulletsList(st.bullets, sess, st.narration) : null, callout));
     }
@@ -1040,7 +1131,10 @@
     const panel = h('div', { class: 'reveal-panel' }, h('div', { class: 'empty' }, 'Select each topic above to learn more. You must view all ' + tabs.length + ' topics to continue.'));
     const btns = tabs.map((tb, i) => h('button', { onclick: () => open(i) }, tb.label));
     const must = h('div', { class: 'must' }, 'Viewed 0 of ' + tabs.length);
-    put(body, st.prompt ? h('p', { style: 'font-size:15px;margin-top:0', html: st.prompt }) : null, h('div', { class: 'reveal-tabs' }, ...btns), panel, must);
+    /* step-level media panel above the tabs, shown while the open tab has no media of its own */
+    const pan = mediaPanel(st, f, 'mp-banner', st.narration);
+    const panSlot = pan ? h('div', { class: 'mp-slot mp-reveal' }, pan) : null;
+    put(body, panSlot, st.prompt ? h('p', { style: 'font-size:15px;margin-top:0', html: st.prompt }) : null, h('div', { class: 'reveal-tabs' }, ...btns), panel, must);
     setGate({ narr: false, req: tabs.length === 0 });
     function pulse() { btns.forEach((b, i) => b.classList.toggle('hint', !busy && !viewed.has(i) && i === [...Array(tabs.length).keys()].find((k) => !viewed.has(k)))); }
     async function open(i) {
@@ -1048,6 +1142,7 @@
       busy = true; pulse();
       btns.forEach((b, k) => b.classList.toggle('open', k === i));
       const media = tabMedia(tabs[i]);
+      if (panSlot) panSlot.classList.toggle('hidden', media.length > 0);
       panel.innerHTML = '';
       if (media.length) put(panel, h('div', { class: 'rv-split' + (media.length > 1 ? ' multi n' + media.length : '') }, h('div', { class: 'rv-media' }, ...media.map(mediaFigure)), h('div', { class: 'rv-body', html: tabs[i].body || '' })));
       else panel.innerHTML = tabs[i].body || '';
@@ -1129,11 +1224,9 @@
       st.kicker ? h('div', { class: 'kc-kicker' }, ltag(st.kicker, 'strong')) : null,
       h('div', { class: 'kc-q', html: st.question }), optsBox, fb, att,
     ];
-    if (st.image && st.image.src) {
-      const { fig, img } = figure(st.image, { cls: 'kc-fig' });
-      put(body, h('div', { class: 'kc-split' }, fig, h('div', { class: 'kc-main' }, ...parts)));
-      kenBurns(img, st.image.kb || [0.5, 0.5, 1.0, 0.5, 0.5, 1.05], SP.checkIntro(st));
-    } else put(body, ...parts);
+    const pan = mediaPanel(st, f, 'kc-fig', SP.checkIntro(st)); /* art, image, or the chapter cover beside the question */
+    if (pan) put(body, h('div', { class: 'kc-split' }, pan, h('div', { class: 'kc-main' }, ...parts.filter(Boolean))));
+    else put(body, ...parts);
     setGate({ narr: false, req: false });
     sayLines(SP.checkIntro(st), sess).then((ok) => { if (ok) { done('narr'); optsBox.classList.add('hint'); } });
     async function choose(i) {
@@ -1396,7 +1489,7 @@
       if (typeof value === 'number' && btns[value]) btns[value].classList.add('on');
       input = h('div', { class: mode === 'scale' ? 'rf-scale' : 'rf-choices' }, ...btns);
     }
-    put(body, h('div', { class: 'rf' }, h('div', { class: 'kc-label' }, 'REFLECTION  |  UNGRADED. YOUR HONESTY IS APPRECIATED.'), st.prompt ? h('div', { class: 'kc-q', html: st.prompt }) : null, input, h('div', { class: 'rf-actions' }, submit, status), reveal));
+    sidePut(body, st, f, SP.narration(st), h('div', { class: 'rf' }, h('div', { class: 'kc-label' }, 'REFLECTION  |  UNGRADED. YOUR HONESTY IS APPRECIATED.'), st.prompt ? h('div', { class: 'kc-q', html: st.prompt }) : null, input, h('div', { class: 'rf-actions' }, submit, status), reveal));
     setGate({ narr: false, req: false });
     sayLines(SP.narration(st), sess).then((ok) => { if (ok && !submitted) done('narr'); });
     submit.addEventListener('click', async () => {
@@ -1437,7 +1530,7 @@
       return col;
     });
     const count = h('div', { class: 'must' }, 'Placed 0 of ' + items.length);
-    put(body, st.prompt ? h('p', { class: 'prompt', html: st.prompt }) : null, h('div', { class: 'kc-label' }, 'DRAG EACH ITEM INTO ITS CATEGORY, OR SELECT AN ITEM AND THEN A CATEGORY'), tray, h('div', { class: 'sr-buckets n' + Math.min(4, buckets.length) }, ...cols), fb, count);
+    sidePut(body, st, f, SP.narration(st), st.prompt ? h('p', { class: 'prompt', html: st.prompt }) : null, h('div', { class: 'kc-label' }, 'DRAG EACH ITEM INTO ITS CATEGORY, OR SELECT AN ITEM AND THEN A CATEGORY'), tray, h('div', { class: 'sr-buckets n' + Math.min(4, buckets.length) }, ...cols), fb, count);
     setGate({ narr: false, req: items.length === 0 });
     function hint() {
       chips.forEach((c, i) => { c.classList.toggle('sel', i === sel); c.classList.toggle('hint', !busy && sel < 0 && i === items.findIndex((x, k) => !placed.has(k))); });
@@ -1475,7 +1568,7 @@
   };
 
   R.takeaways = (body, st, f, sess) => {
-    put(body, h('div', { class: 'mantra-chips' }, ...mantraBeats.map((m) => h('span', null, m))), bulletsList(st.items || [], sess, st.narration), h('div', { class: 'callout', html: '<b>Remember:</b> ' + esc(course.mantra) }));
+    put(body, mediaPanel(st, f, 'mp-banner', st.narration), h('div', { class: 'mantra-chips' }, ...mantraBeats.map((m) => h('span', null, m))), bulletsList(st.items || [], sess, st.narration), h('div', { class: 'callout', html: '<b>Remember:</b> ' + esc(course.mantra) }));
     narr(st, sess);
   };
 
@@ -1483,7 +1576,7 @@
     const cb = h('input', { type: 'checkbox' });
     const nm = h('input', { type: 'text', placeholder: 'Full legal name', value: state.name });
     const lab = h('label', null, cb, h('span', null, 'I acknowledge that I have read, understood, and will comply with the above. I understand that photons do not accept ignorance as an excuse.'));
-    put(body, h('div', { class: 'ack-box' }, h('div', { html: st.text || '' }), h('div', { style: 'margin-top:14px' }, 'Name: ', nm), lab));
+    sidePut(body, st, f, SP.ack(st), h('div', { class: 'ack-box' }, h('div', { html: st.text || '' }), h('div', { style: 'margin-top:14px' }, 'Name: ', nm), lab));
     setGate({ narr: false, req: false });
     sayLines(SP.ack(st), sess).then((ok) => { if (ok) { done('narr'); if (!gate.req) lab.classList.add('hint'); } });
     const check = () => { state.name = nm.value.trim(); persist(); if (cb.checked && state.name.length > 1) { lab.classList.remove('hint'); done('req'); } else if (cb.checked) { toast('Please enter your full legal name to acknowledge.'); cb.checked = false; } };
@@ -1491,7 +1584,7 @@
   };
 
   R.refs = (body, st, f, sess) => {
-    put(body, h('p', { style: 'margin-top:0;color:var(--ink-2)' }, 'The following sources informed this module. Reading them is strongly encouraged and, per policy, assumed.'),
+    put(body, mediaPanel(st, f, 'mp-banner', st.narration), h('p', { style: 'margin-top:0;color:var(--ink-2)' }, 'The following sources informed this module. Reading them is strongly encouraged and, per policy, assumed.'),
       h('ol', { class: 'refs' }, ...(st.items || []).map((r) => h('li', { html: esc(r.cite) + (r.doi ? ' <a target="_blank" rel="noopener" href="https://doi.org/' + esc(r.doi) + '">doi:' + esc(r.doi) + '</a>' : r.url ? ' <a target="_blank" rel="noopener" href="' + esc(r.url) + '">link</a>' : '') }))));
     setGate({ narr: true, req: true });
     if (st.narration) narr(st, sess);
@@ -1564,24 +1657,42 @@
     sayLines(SP.examResult(course, pass), sess).then((ok) => { if (ok) done('narr'); });
   };
 
+  /* Certificate: code-drawn SVG from engine/certificate.js (design variant: course.certificate.variant, else LMS_CONFIG.certVariant, else 'A').
+     Number and issue date are fixed once per session so re-renders match the downloaded PNG. */
   R.certificate = (body, st, f, sess) => {
     Sound.sfx('certificate');
-    const no = (course.code || 'CERT') + '-' + Math.random().toString(16).slice(2, 10).toUpperCase();
-    const today = new Date().toISOString().slice(0, 10);
-    put(body, h('div', { class: 'cert' },
-      h('div', { style: 'font:12px var(--mono);letter-spacing:2px;color:var(--ink-3)' }, 'FIVE SIGMA PHOTONICS, INC.  |  OFFICE OF PHOTONIC CONDUCT'),
-      h('h1', null, 'Certificate of Completion'),
-      h('div', null, 'This certifies that'),
-      h('div', { class: 'nm' }, state.name || 'Valued Team Member'),
-      h('div', null, 'has completed'),
-      h('h2', { style: 'margin:8px 0;color:var(--ink)' }, course.title),
-      h('div', null, (course.code || '') + '  |  Completed ' + today + '  |  Valid for 12 months'),
-      h('div', { class: 'mantra-chips', style: 'justify-content:center;margin-top:16px' }, ...mantraBeats.map((m) => h('span', null, m))),
-      h('div', { class: 'sig' }, h('div', null, (course.host && course.host.name) || 'Host', h('br'), (course.host && course.host.role) || ''), h('div', null, 'Chief Photonic Conduct Officer')),
-      h('div', { class: 'fine' }, 'Certificate No. ' + no + '. This certificate does not certify that any device will work. Photons are not bound by this certificate.')
-    ), h('div', { style: 'text-align:center;margin-top:14px' }, h('button', { class: 'btn primary', onclick: () => window.print() }, 'Print / Save as PDF'), ' ', h('a', { class: 'btn', href: 'index.html', style: 'text-decoration:none;display:inline-block' }, 'Return to My Learning')));
+    const C = window.LMS_CERT;
+    if (!state.certNo) state.certNo = C ? C.newCertNo(course.code) : (course.code || 'CERT') + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    if (!state.certDate) { const t = new Date(); state.certDate = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); }
+    const back = h('a', { class: 'btn', href: 'index.html', style: 'text-decoration:none;display:inline-block' }, 'Return to My Learning');
     setGate({ narr: false, req: true });
     sayLines(SP.certificate(course), sess).then((ok) => { if (ok) done('narr'); });
+    if (!C) { put(body, h('p', { style: 'text-align:center' }, 'Certificate No. ' + state.certNo + '. Issued to ' + (state.name || 'Valued Team Member') + ', ' + state.certDate + '.'), h('div', { class: 'cert-actions' }, back)); return; }
+    const variant = (course.certificate && course.certificate.variant) || (window.LMS_CONFIG && window.LMS_CONFIG.certVariant) || 'A';
+    const data = C.fromCourse(course, { name: state.name, date: state.certDate, certNo: state.certNo });
+    const sheet = h('div', { class: 'cert-sheet', role: 'img', 'aria-label': 'Certificate of completion for ' + data.name });
+    const wrap = h('div', { class: 'cert-wrap' }, sheet);
+    sheet.addEventListener('click', () => { if (window.matchMedia('(max-width: 820px)').matches) sheet.classList.toggle('zoomed'); });
+    const dl = h('button', { class: 'btn primary' }, 'Download certificate (PNG)');
+    dl.addEventListener('click', () => {
+      dl.disabled = true; dl.textContent = 'Preparing PNG...';
+      C.download(variant, data).catch((e) => { console.error(e); toast('The certificate image could not be created in this browser. Please use Print / Save as PDF.'); })
+        .then(() => { dl.disabled = false; dl.textContent = 'Download certificate (PNG)'; });
+    });
+    /* printing (button or Ctrl+P) on this step prints only the certificate, US Letter landscape, no margins */
+    const printBox = h('div', { id: 'cert-print' });
+    const pageCss = h('style', null, '@page { size: 11in 8.5in; margin: 0; }');
+    document.body.append(printBox); document.head.append(pageCss);
+    document.documentElement.classList.add('cert-print');
+    cleanups.push(() => { printBox.remove(); pageCss.remove(); document.documentElement.classList.remove('cert-print'); });
+    const pr = h('button', { class: 'btn', onclick: () => window.print() }, 'Print / Save as PDF');
+    put(body, wrap, h('div', { class: 'cert-hint' }, 'Tap the certificate to zoom.'), h('div', { class: 'cert-actions' }, dl, ' ', pr, ' ', back));
+    const gen = stepGen;
+    C.ensureFonts().then(() => {
+      if (gen !== stepGen) return;
+      sheet.innerHTML = C.render(variant, data);
+      printBox.innerHTML = C.render(variant, data);
+    });
   };
 
   R.unknown = (body, st) => { put(body, h('div', null, 'Unsupported content type: ' + st.type)); setGate({ narr: true, req: true }); };

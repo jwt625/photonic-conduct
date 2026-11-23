@@ -63,6 +63,7 @@ for (const id of ids) {
   const image = (im, where, required) => {
     if (!im) { if (required) err(where + ' needs image: { src }'); return; }
     if (typeof im.src !== 'string' || !im.src) { err(where + ' image.src must be a non-empty string'); return; }
+    if (im.kb !== undefined && !(Array.isArray(im.kb) && im.kb.length === 6 && im.kb.every((v) => typeof v === 'number'))) err(where + ' image.kb must be [x0, y0, s0, x1, y1, s1]');
     if (!imgs.has(im.src)) imgs.set(im.src, where);
   };
   /* presenter cam clips (course.host.cam, step hostCam): { idle: src | [src], talk: [src | { src, weight }] } or false */
@@ -117,6 +118,18 @@ for (const id of ids) {
         if (!t.label || !t.why) err(where + ' target ' + k + ' needs label and why');
       });
       if (!st.missWhy) warn(where + ' spot has no missWhy (engine falls back to a generic line)');
+    }
+    /* media panels: image: { src, alt, kb } and art: { name, params } on any step (slot by type: engine/speech_lines.js LMS_mediaSlot) */
+    const slot = SL.LMS_mediaSlot(st);
+    if (st.image !== undefined && !['check', 'slide', 'photo', 'hotspots', 'spot'].includes(st.type)) image(st.image, where, false);
+    if (st.image && !slot && !['slide', 'photo', 'hotspots', 'spot'].includes(st.type)) warn(where + ' image is not shown on ' + st.type + ' steps (no media panel slot)');
+    if (st.art !== undefined) {
+      const A = (window.LMS_DRAW && window.LMS_DRAW.art) || {};
+      if (!st.art || typeof st.art !== 'object' || Array.isArray(st.art) || typeof st.art.name !== 'string' || !st.art.name) err(where + ' art must be { name, params }');
+      else if (typeof A[st.art.name] !== 'function') err(where + ' art "' + st.art.name + '" is not defined in window.LMS_DRAW.art (anims/*.js)');
+      if (st.art && st.art.params !== undefined && (typeof st.art.params !== 'object' || st.art.params === null || Array.isArray(st.art.params))) err(where + ' art.params must be an object');
+      if (st.art && st.art.alt !== undefined && typeof st.art.alt !== 'string') err(where + ' art.alt must be a string');
+      if (!slot) warn(where + ' art is not shown on ' + st.type + (st.layout ? ' ' + st.layout : '') + ' steps (no media panel slot)');
     }
     if (st.sfx !== undefined) {
       if (typeof st.sfx !== 'string' || !st.sfx) err(where + ' sfx must be a sound effect name');
@@ -203,6 +216,23 @@ for (const id of ids) {
   });
   (c.exam.pool || []).forEach((q, i) => check(Object.assign({ type: 'check' }, q), id + ' exam' + i));
 
+  /* media fallback: steps with a panel slot but neither image nor art show the chapter cover (exam questions rotate through the covers) */
+  const fbBy = {}; let fbCh = 0, fbEx = 0;
+  const fbType = (st) => st.type + (st.type === 'slide' ? ' ' + (st.layout || 'bullets') : '');
+  const fbName = (st) => { const t = SL.LMS_stripHtml(st.title || st.question || st.prompt || '').replace(/\s+/g, ' ').trim(); return t.length > 60 ? t.slice(0, 58) + '...' : t; };
+  c.chapters.forEach((ch, ci) => (ch.steps || []).forEach((st, si) => {
+    if (!SL.LMS_needsFallback(st)) return;
+    fbCh++; fbBy[fbType(st)] = (fbBy[fbType(st)] || 0) + 1;
+    const cv = SL.LMS_coverFor(c, ci);
+    warn(id + ' ch' + ci + ' step' + si + ' media fallback (' + fbType(st) + ', no image or art): ' + (cv ? 'chapter cover ' + cv : 'no cover in the course, no panel') + '  | ' + fbName(st));
+  }));
+  (c.exam.pool || []).forEach((q, i) => {
+    const st = Object.assign({ type: 'check' }, q);
+    if (!SL.LMS_needsFallback(st)) return;
+    fbEx++; fbBy['exam check'] = (fbBy['exam check'] || 0) + 1;
+    warn(id + ' exam' + i + ' media fallback (check, no image or art): chapter covers in rotation  | ' + fbName(st));
+  });
+
   /* images the engine collects but the checks above do not visit (cast avatars shown in chats, stage images) */
   SL.LMS_collectImages(c).forEach((s) => { if (!imgs.has(s)) imgs.set(s, id + ' (cast avatar or stage)'); });
   /* images: file on disk + registry entry with credit */
@@ -280,6 +310,7 @@ for (const id of ids) {
   }
   console.log(id, 'chapters', c.chapters.length, 'steps', n, 'exam pool', (c.exam.pool || []).length, 'narration words', words, '(~' + Math.round(words / 150) + ' min spoken)',
     'speech lines', lines.length, '(' + rec + ')', 'images', imgs.size, 'widgets', Object.keys(c.widgets || {}).join(','));
+  console.log(id, 'media fallback', fbCh + fbEx, 'steps (' + fbCh + ' in chapters, ' + fbEx + ' in the exam pool)' + (fbCh + fbEx ? ': ' + Object.keys(fbBy).sort().map((k) => k + ' ' + fbBy[k]).join(', ') : ''));
 }
 /* widget files: say literals must be registered in window.LMS_WIDGET_SPEECH (or a course.speech list) so they can be pre-recorded */
 {

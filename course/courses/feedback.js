@@ -1703,6 +1703,158 @@
     t.image = { src: FB + 'tisa_laser_table.jpg', kb: [0.55, 0.5, 1.0, 0.6, 0.45, 1.1] };
   })();
 
+  /* =================================================================== */
+  /* MEDIA ON EVERY STEP (DevLog-007, D46): looping code-drawn art panels  */
+  /* from anims/art_fb.js for steps without a photo, matched by chapter,   */
+  /* step type and the start of the title / question / prompt; exam pool   */
+  /* questions by the start of the question. Each anchor must match once.  */
+  /* =================================================================== */
+  (function () {
+    function A(name, params) { return { name: 'fb.' + name, params: params || {} }; }
+    function keyOf(st) { return [st.title, st.question, st.prompt, st.text].filter(function (s) { return typeof s === 'string'; }); }
+    function on(ch, type, key, art) {
+      var hit = ch.steps.filter(function (st) { return st.type === type && (key === null || keyOf(st).some(function (s) { return s.indexOf(key) === 0; })); });
+      if (hit.length !== 1) throw new Error('art anchor matched ' + hit.length + ' steps: ' + ch.id + ' ' + type + ' ' + key);
+      hit[0].art = art;
+    }
+    function onPool(key, art) {
+      var hit = pool.filter(function (st) { return st.question && st.question.indexOf(key) === 0; });
+      if (hit.length !== 1) throw new Error('art anchor matched ' + hit.length + ' exam questions: ' + key);
+      hit[0].art = art;
+    }
+    var L = 'media/lit/fb_';
+    function lit(list) { return A('litSlide', { figs: list.map(function (f) { return [L + f[0], f[1], f[2]]; }) }); }
+    var TK = 'Tkach and Chraplyvy 1986';
+    function mantra(motif, col) { return A('mantra', { motif: motif, col: col, beats: MSHORT }); }
+    function sign(n, seed, col) { return A('signature', { mark: String(n), seed: seed, col: col }); }
+
+    /* Module 0 */
+    on(ch0, 'slide', 'Course Enforcement Features', A('stamp', { word: 'MANDATORY', head: 'PHC-1550.4' }));
+    on(ch0, 'reveal', 'Key Terms Used in This Course', A('glossary'));
+    on(ch0, 'reflect', 'A Moment of Reflection', A('echo'));
+    on(ch0, 'check', 'Practice question.', A('liRipple'));
+    on(ch0, 'takeaways', null, mantra('laser', '#f2c94c'));
+    on(ch0, 'ack', null, sign(0, 1, '#b3261e'));
+    /* Module 1 */
+    on(ch1, 'slide', 'Learning Objectives', A('feedbackDelay'));
+    on(ch1, 'slide', 'Return Loss Budgets and Placement', A('linkReflect'));
+    on(ch1, 'check', 'In which feedback regime', A('linewidth', { mode: 'regimes' }));
+    on(ch1, 'reflect', 'Honest Self-Assessment', A('isoRemove'));
+    on(ch1, 'check', 'You are Gary. It is Monday morning', A('beatNote', { mode: 'restore' }));
+    on(ch1, 'check', 'You are Dana. On Friday', A('speakUp', { icon: 'isolator', text: APPROVED }));
+    on(ch1, 'takeaways', null, mantra('regimes', '#56d4ff'));
+    on(ch1, 'ack', null, sign(1, 2, '#1d5fbf'));
+    on(ch1, 'refs', null, lit([['tkach1986_regime1.svg', TK, 1.24], ['tkach1986_regime2.svg', TK, 1.24], ['marinins2022_far_end.svg', 'Marinins et al. 2022', 1.6], ['tkach1986_regime3.svg', TK, 1.24], ['tkach1986_regime4.svg', TK, 1.24], ['tkach1986_regime5.svg', TK, 1.24]]));
+    /* Module 2 */
+    on(ch2, 'slide', 'Learning Objectives', A('etalon'));
+    on(ch2, 'slide', 'The Parasitic Etalon, in Two Formulas', A('airy'));
+    on(ch2, 'reveal', 'Cavities You Did Not Design', A('hiddenReflectors'));
+    on(ch2, 'check', 'A high-gain erbium-doped', A('accidentalLaser'));
+    on(ch2, 'slide', 'Incident 2: The Numbers', A('gapRipple'));
+    on(ch2, 'reveal', 'How Do You Think Gary Felt?', A('feltCycle'));
+    on(ch2, 'check', 'You are Gary. The report with the intrinsic ripple', A('gelFill'));
+    on(ch2, 'check', 'You are Dana. You found the cause', A('logbook'));
+    on(ch2, 'takeaways', null, mantra('cavity', '#a98bff'));
+    on(ch2, 'ack', null, sign(2, 3, '#7b2cbf'));
+    on(ch2, 'refs', null, lit([['bao2024_fig4ab.png', 'Bao et al. 2024', 2.36], ['crossings_splitters.svg', 'Celo et al. 2017; Tian et al. 2025', 1.3], ['cherchi2014_mmi_walls.svg', 'Cherchi et al. 2014', 1.3], ['vaerenbergh2021_vertical_gc.svg', 'Van Vaerenbergh et al. 2021', 1.44], ['contreras2023_offset_splice.svg', 'Contreras-Teran et al. 2023', 1.625]]));
+    /* Module 3 */
+    on(chCat, 'slide', 'Learning Objectives', A('nineTiles'));
+    on(chCat, 'slide', 'Category 1 of 9', A('chipCavity'));
+    on(chCat, 'check', 'A laser flip-chip bonded', A('sameRipple'));
+    on(chCat, 'slide', 'Category 2 of 9', A('fresnel'));
+    on(chCat, 'check', 'The output of a fiber-coupled laser jumps', A('fiberWiggle'));
+    on(chCat, 'check', 'You are the tester. A ripple on your laser', A('periodToLength'));
+    on(chCat, 'slide', 'Category 3 of 9', A('instrumentFeedback'));
+    on(chCat, 'check', 'The same laser reads a broader linewidth', A('beatNote', { mode: 'compare' }));
+    on(chCat, 'slide', 'Category 4 of 9', A('isoBand'));
+    on(chCat, 'check', 'An isolator labelled for the 1310', A('faraday', { rot: 32 }));
+    on(chCat, 'check', 'You are Dana. While helping', A('labelSwap'));
+    on(chCat, 'sort', 'Sort the Reflectors', A('sortBins', { bins: ['#a98bff', '#56d4ff', '#f2c94c', '#ff6fd8'], items: [['gc', 0], ['fibertip', 1], ['setup', 2], ['iso1310', 3], ['amp', 0], ['dut', 1], ['window', 2], ['pigtail', 3]] }));
+    on(chCat, 'slide', 'Category 5 of 9', A('splitter'));
+    on(chCat, 'check', 'A shared splitter on the group', A('splitter', { mode: 'noise' }));
+    on(chCat, 'slide', 'Category 6 of 9', A('parcel'));
+    on(chCat, 'check', 'Chips from a partner university', A('facetAngle'));
+    on(chCat, 'check', 'You are the tester. The partner', A('reflectometer'));
+    on(chCat, 'slide', 'Category 7 of 9', A('balance'));
+    on(chCat, 'check', 'Morgan tells Gary', A('tradeoff'));
+    on(chCat, 'slide', 'Category 8 of 9', A('pairs'));
+    on(chCat, 'check', 'On Gary\'s bench', A('multiRipple'));
+    on(chCat, 'check', 'You are Dana. You have just joined', A('fixOneByOne'));
+    on(chCat, 'sort', 'Reflects or Does Not Reflect', A('sortBins', { bins: ['#3fb950', '#e5534b'], items: [['facet', 0], ['apc', 0], ['arlens', 0], ['gel', 0], ['ring', 0], ['iso', 0], ['fiber', 0], ['uniform', 1]] }));
+    on(chCat, 'slide', 'Category 9 of 9', A('linewidth', { mode: 'cycle' }));
+    on(chCat, 'check', 'After a flat connector is added', A('linewidth', { mode: 'moving' }));
+    on(chCat, 'check', 'You are the tester. Your laser', A('recover'));
+    on(chCat, 'sort', 'Source or Response', A('sortBins', { bins: ['#ff9a52', '#e5534b'], items: [['openport', 0], ['hops', 1], ['noiso', 0], ['ripple', 1], ['collapse', 1], ['window', 0]] }));
+    on(chCat, 'takeaways', null, mantra('nine', '#f2c94c'));
+    on(chCat, 'ack', null, sign(3, 4, '#b3261e'));
+    on(chCat, 'refs', null, lit([['marinins2022_far_end.svg', 'Marinins et al. 2022', 1.6], ['bao2024_fig4ab.png', 'Bao et al. 2024', 2.36], ['tkach1986_regime4.svg', TK, 1.24], ['lapointe2023_fig3g.png', 'Lapointe et al. 2025', 0.72], ['dekoninck2023_figS5a.png', 'De Koninck et al. 2025', 2.32]]));
+    /* Module 4 */
+    on(ch3, 'slide', 'Learning Objectives', A('modeHop'));
+    on(ch3, 'check', 'Gary sweeps the temperature up', A('hysteresis'));
+    on(ch3, 'check', 'You are Dana. You were in the room', A('report'));
+    on(ch3, 'takeaways', null, mantra('hop', '#38e0b8'));
+    on(ch3, 'ack', null, sign(4, 5, '#1d5fbf'));
+    on(ch3, 'refs', null, lit([['vanrees2020_mhf_tuning.svg', 'van Rees et al. 2020', 1.3], ['xu2021_fig5a.png', 'Xu et al. 2021', 0.65], ['franken2024_fig3a.png', 'Franken et al. 2025', 1.32], ['franken2024_fig4d.png', 'Franken et al. 2025', 2.98], ['tkach1986_regime2.svg', TK, 1.24]]));
+    /* Module 5 */
+    on(ch4, 'slide', 'Learning Objectives', A('isoOneWay'));
+    on(ch4, 'slide', 'Policy 4.1: Definition of an Isolator', A('faraday'));
+    on(ch4, 'reveal', 'Isolation Facts and Myths', A('retrace'));
+    on(ch4, 'reflect', 'Check Your Own Bench', A('isoCompass'));
+    on(ch4, 'check', 'A passive, linear, time-invariant', A('modeConvert'));
+    on(ch4, 'check', 'An output waveguide is tilted', A('snell'));
+    on(ch4, 'slide', 'Policy 4.3: Isolator Orientation', A('isoOrient'));
+    on(ch4, 'check', 'You are Dana. Gary has posted a photo', A('arrowCheck'));
+    on(ch4, 'takeaways', null, mantra('isolator', '#56d4ff'));
+    on(ch4, 'ack', null, sign(5, 6, '#7b2cbf'));
+    on(ch4, 'refs', null, lit([['lapointe2023_fig3g.png', 'Lapointe et al. 2025', 0.72], ['lapointe2023_fig3k.png', 'Lapointe et al. 2025', 1.74], ['kashyap1988_fiber_fuse.svg', 'Kashyap and Blow 1988', 2.0]]));
+    /* Module 6 */
+    on(ch5, 'slide', 'Learning Objectives', A('ringDoublet'));
+    on(ch5, 'check', 'A high-Q ring shows a resonance with two', A('doubletFit'));
+    on(ch5, 'check', 'Backscatter-based self-injection locking', A('thermalDetune'));
+    on(ch5, 'slide', 'Incident 5: The Numbers', A('couplingAmbiguity'));
+    on(ch5, 'reveal', 'How Do You Think Gary Felt?', A('feltCycle', { words: ['Ashamed', 'Split', 'Over-coupled', 'Logged'], kinds: ['blush', 'split', 'overcoupled', 'logged'] }));
+    on(ch5, 'check', 'You are Gary. The record Q', A('reflectPort'));
+    on(ch5, 'check', 'You are Dana, a co-author', A('speakUp', { icon: 'clock', text: APPROVED }));
+    on(ch5, 'takeaways', null, mantra('ring', '#ff6fd8'));
+    on(ch5, 'ack', null, sign(6, 7, '#b3261e'));
+    on(ch5, 'refs', null, lit([['doublet_single_fit.svg', 'Ji et al. 2017', 1.24], ['hausmann2014_stitching.svg', 'Hausmann et al. 2014', 1.3], ['raja2019_fig2d_inset.png', 'Raja et al. 2019', 1.34], ['white2024_backreflection.svg', 'White et al. 2024', 1.3], ['kramnik2024_fig2c.png', 'Kramnik et al. 2025', 0.92], ['chen2026_fig2d.png', 'Chen et al. 2026', 2.26]]));
+    /* Module 7 */
+    on(ch6, 'slide', 'Learning Objectives', A('wavemeterAvg'));
+    on(ch6, 'reveal', 'When the Measurement Is the Problem', A('osaResolution'));
+    on(ch6, 'check', 'A ring measured with a laser on the same chip', A('heatedSweep'));
+    on(ch6, 'check', 'Gary measures laser linewidth without an isolator', A('selfHet'));
+    on(ch6, 'reflect', 'Your Last Measurement', A('runStrip', { mode: 'keep' }));
+    on(ch6, 'check', 'You are Gary. The laser passed on run 9', A('runStrip', { mode: 'hold' }));
+    on(ch6, 'check', 'You are Dana, the second signature', A('holdSignature'));
+    on(ch6, 'takeaways', null, mantra('meter', '#7fe8a2'));
+    on(ch6, 'ack', null, sign(7, 8, '#1d5fbf'));
+    on(ch6, 'refs', null, lit([['dekoninck2023_figS5a.png', 'De Koninck et al. 2025', 2.32], ['chowdhury2024_fsr.svg', 'Chowdhury et al. 2024', 1.73]]));
+    /* final assessment pool */
+    [['Which of the following best describes optical feedback', A('echo')],
+      ['Flip-chip InP lasers on a silicon photonics chip', A('chipCavity')],
+      ['What is the free spectral range of a parasitic cavity', A('etalon')],
+      ['Two reflectors have power reflectances', A('airy')],
+      ['A high-gain waveguide amplifier', A('accidentalLaser')],
+      ['Why do sweep-up and sweep-down', A('hysteresis')],
+      ['A datasheet quotes a wide tuning range', A('modeHop')],
+      ['What does an optical isolator have to break', A('faraday')],
+      ['A static silicon mode converter', A('modeConvert')],
+      ['An output waveguide is tilted at the facet', A('snell')],
+      ['Why might reflections from a III-V to silicon taper', A('linkReflect')],
+      ['A high-Q ring shows a doublet', A('doubletFit')],
+      ['What is one published source of resonance splitting', A('ringDoublet')],
+      ['Why can a thermally locked ring', A('thermalDetune')],
+      ['A wavemeter shows a steady wavelength', A('wavemeterAvg')],
+      ['An inline isolator is installed with its arrow', A('isoOrient')],
+      ['A ripple in an edge-coupled transmission', A('gapRipple')],
+      ['A laser hops during a demo', A('logbook')],
+      ['A ring resonance shows a doublet, and light comes back', A('reflectPort')],
+      ['An optical spectrum analyzer with a resolution bandwidth', A('osaResolution')],
+      ['Morgan suggests removing the isolator', A('tradeoff')],
+      ['A shared splitter on the group bench', A('splitter')]
+    ].forEach(function (e) { onPool(e[0], e[1]); });
+  })();
+
   /* vary the position of the correct option (deterministic rotation) */
   var nByLen = {};
   function rotate(st) { if (st.type !== 'check') return; var L = st.options.length; nByLen[L] = (nByLen[L] || 0) + 1; var k = nByLen[L] % L; st.options = st.options.slice(k).concat(st.options.slice(0, k)); }
@@ -1721,6 +1873,7 @@
     mantra: MANTRA, mantraShort: MSHORT,
     host: { name: 'Pat Reynolds', role: 'Director, Office of Photonic Conduct', img: 'media/render/host_pat_present.jpg',
       cam: { idle: 'media/render/host_pat_cam_idle.mp4', talk: ['media/render/host_pat_cam_talk.mp4', { src: 'media/render/host_pat_cam_gesture.mp4', weight: 0.5 }] } },
+    certificate: { line: 'and is hereby certified to speak up about unsolicited optical feedback, to retaliate against no laser, and to isolate, angle, and verify every interface in their care.' },
     employer: 'Five Sigma Photonics, Inc.',
     chapters: [ch0, ch1, ch2, chCat, ch3, ch4, ch5, ch6],
     exam: { passPct: 80, count: 10, pool: pool },

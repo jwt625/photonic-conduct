@@ -197,6 +197,47 @@
     return out;
   }
 
+  /* Media panels (image: { src, alt, kb } or art: { name, params }) and the chapter-cover fallback, shared by the player and the validator.
+     Slot by step type: 'split' (bullets / policy / title slides, panel right), 'kc' (check, kc-split), 'banner' (takeaways, refs),
+     'side' (ack, reflect, sort), 'reveal' (above the tabs). Other types are visual already (video, chat, widget, photo, hotspots,
+     spot, cards, host / hero / split slides) or exempt (exam result, certificate, disclaimer): no slot. */
+  var PANEL_SLOT = { check: 'kc', takeaways: 'banner', refs: 'banner', ack: 'side', reflect: 'side', sort: 'side', reveal: 'reveal' };
+  function mediaSlot(st) {
+    if (!st) return null;
+    if (st.type === 'slide') { var l = st.layout || 'bullets'; return l === 'bullets' || l === 'policy' || l === 'title' ? 'split' : null; }
+    return Object.prototype.hasOwnProperty.call(PANEL_SLOT, st.type) ? PANEL_SLOT[st.type] : null;
+  }
+  function hasOwnMedia(st) { return !!(st && ((st.image && st.image.src) || (st.art && st.art.name))); }
+  /* true when the step would otherwise be text-only (reveal: no image / art and at least one tab without media) */
+  function needsFallback(st) {
+    if (!mediaSlot(st) || hasOwnMedia(st)) return false;
+    if (st.type === 'reveal') { var tabs = st.tabs || []; return !tabs.length || tabs.some(function (tb) { return !tabMedia(tb).length; }); }
+    return true;
+  }
+  /* chapter cover = the first step image in the chapter (as on the start screen) */
+  function chapterCover(ch) {
+    var steps = (ch && ch.steps) || [];
+    for (var i = 0; i < steps.length; i++) if (steps[i] && steps[i].image && steps[i].image.src) return steps[i].image.src;
+    return null;
+  }
+  /* fallback cover for chapter ci: its own cover, else the nearest earlier chapter's, else the first one in the course */
+  function coverFor(c, ci) {
+    var chs = (c && c.chapters) || [];
+    for (var k = Math.min(ci, chs.length - 1); k >= 0; k--) { var s = chapterCover(chs[k]); if (s) return s; }
+    for (var j = 0; j < chs.length; j++) { var s2 = chapterCover(chs[j]); if (s2) return s2; }
+    return null;
+  }
+  /* exam questions cycle through the chapter covers in order (question n, from 0, uses cover n mod count) */
+  function examCover(c, n) {
+    var list = ((c && c.chapters) || []).map(chapterCover).filter(Boolean);
+    return list.length ? list[Math.abs(n | 0) % list.length] : null;
+  }
+
+  G.LMS_mediaSlot = mediaSlot;
+  G.LMS_needsFallback = needsFallback;
+  G.LMS_chapterCover = chapterCover;
+  G.LMS_coverFor = coverFor;
+  G.LMS_examCover = examCover;
   G.LMS_LINES = LINES;
   G.LMS_SPEECH = S;
   G.LMS_stripHtml = stripHtml;
@@ -207,6 +248,6 @@
   G.LMS_castFor = castFor;
   G.LMS_tabMedia = tabMedia;
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { LMS_LINES: LINES, LMS_SPEECH: S, LMS_stripHtml: stripHtml, LMS_splitSentences: splitSentences, LMS_collectSpeech: collectSpeech, LMS_collectImages: collectImages, LMS_collectHostCams: collectHostCams, LMS_castFor: castFor, LMS_tabMedia: tabMedia };
+    module.exports = { LMS_LINES: LINES, LMS_SPEECH: S, LMS_stripHtml: stripHtml, LMS_splitSentences: splitSentences, LMS_collectSpeech: collectSpeech, LMS_collectImages: collectImages, LMS_collectHostCams: collectHostCams, LMS_castFor: castFor, LMS_tabMedia: tabMedia, LMS_mediaSlot: mediaSlot, LMS_needsFallback: needsFallback, LMS_chapterCover: chapterCover, LMS_coverFor: coverFor, LMS_examCover: examCover };
   }
 })(typeof window !== 'undefined' ? window : globalThis);

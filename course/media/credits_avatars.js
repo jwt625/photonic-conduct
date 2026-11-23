@@ -287,5 +287,32 @@ window.LMS_MEDIA = Object.assign(window.LMS_MEDIA || {}, {
     "kind": "drawing",
     "w": 256,
     "h": 256
+  },
+  "media/avatars/gary_cleanroom_render.jpg": {
+    "alt": "Profile picture: clay-style render of Gary gowned for the cleanroom, white hood, face mask and clear safety glasses (cropped from his cleanroom portrait)",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=gary_suit avatar=media/avatars/gary_cleanroom_render.jpg",
+    "kind": "render",
+    "w": 256,
+    "h": 256
+  },
+  "media/avatars/morgan_render.jpg": {
+    "alt": "Profile picture: clay-style render of Morgan with parted brown hair, a satisfied smile, a navy suit, white shirt and red tie, in a studio office (cropped from his portrait)",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=morgan avatar=media/avatars/morgan_render.jpg",
+    "kind": "render",
+    "w": 256,
+    "h": 256
+  },
+  "media/avatars/dana_render.jpg": {
+    "alt": "Profile picture: clay-style render of Dana Okafor with dark brown skin, natural curly hair, round brown glasses, a warm smile and a teal sweater, in a studio office (cropped from the portrait)",
+    "credit": "Rendered in Blender for this course",
+    "license": "CC BY 4.0, project asset",
+    "source": "course/tools/blender/shot_cast.py who=dana avatar=media/avatars/dana_render.jpg",
+    "kind": "render",
+    "w": 256,
+    "h": 256
   }
 });
