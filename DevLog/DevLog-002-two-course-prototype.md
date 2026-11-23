@@ -79,7 +79,7 @@ Sampled: lithium-niobate baby-mode sessions (2026-10-28/29) for how he reviews i
 ## 7. Progress log
 
 - 2026-11-22: six surveys returned; picked D1/D2; engine + dashboard built; stub course passes headless walk (18 steps, 0 console errors).
-- 2026-11-22 13:10: both courses in; Blender shot notes moved under the video player; served at http://127.0.0.1:47293/ (tmux session `compliance-training`, `python3 -m http.server`). `file://` also works.
+- 2026-11-22 13:10: both courses in; Blender shot notes moved under the video player; served at http://127.0.0.1:47293/ (tmux session `compliance-training`, `uv run --no-project python -m http.server`). `file://` also works.
 
 ## 8. Audit corrections (2026-11-22)
 
