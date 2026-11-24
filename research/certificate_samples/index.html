@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificate Variants</title>
+<style>
+  :root { --bg: #111418; --panel: #191d23; --line: #2a3038; --ink: #e6e9ee; --ink-2: #9aa3ae; --acc: #d4ab4f; }
+  * { box-sizing: border-box; border-radius: 0; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header b { font-size: 14px; }
+  header label { color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
+  input[type=text] { background: #0d1014; color: var(--ink); border: 1px solid var(--line); padding: 4px 6px; width: 260px; font: inherit; }
+  button { background: #222831; color: var(--ink); border: 1px solid var(--line); padding: 4px 10px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--acc); }
+  main { padding: 12px 16px 40px; }
+  .row { margin: 0 0 22px; }
+  .row h2 { font-size: 14px; margin: 0 0 6px; font-weight: 600; }
+  .row h2 span { color: var(--ink-2); font-weight: 400; margin-left: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); padding: 8px; }
+  .card .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; color: var(--ink-2); }
+  .card svg { display: block; width: 100%; height: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+  .status { color: var(--ink-2); }
+</style>
+</head>
+<body>
+<header>
+  <b>Certificate variants</b>
+  <label>Name (FE column) <input type="text" id="nmLong" value="Alexandra Q. Montgomery-Okonkwo"></label>
+  <label>Name (FB column) <input type="text" id="nmShort" value="Gary"></label>
+  <button id="swap" title="Swap the two sample names">Swap</button>
+  <span class="status" id="status">Loading fonts</span>
+</header>
+<main id="main"></main>
+<script src="../../course/engine/certificate.js"></script>
+<script src="../../course/courses/ferroelectric.js"></script>
+<script src="../../course/courses/feedback.js"></script>
+<script>
+(function () {
+  'use strict';
+  const C = window.LMS_COURSES || {};
+  const courses = [C.ferroelectric, C.feedback].filter(Boolean);
+  const main = document.getElementById('main');
+  const nmL = document.getElementById('nmLong'), nmS = document.getElementById('nmShort');
+  const DATE = '2026-11-23';
+  const certNos = { FE: 'FE-0042-7QK3X9', FB: 'FB-1550-M4TD2R' };
+  function data(course, name) {
+    return window.LMS_CERT.fromCourse(course, { name, date: DATE, certNo: course.code === 'FB-1550' ? certNos.FB : certNos.FE });
+  }
+  function draw() {
+    main.innerHTML = '';
+    window.LMS_CERT.variants.forEach((v) => {
+      const row = document.createElement('section'); row.className = 'row';
+      row.innerHTML = '<h2>' + v.id + '<span>' + v.label + '</span></h2>';
+      const grid = document.createElement('div'); grid.className = 'grid';
+      courses.forEach((course, i) => {
+        const d = data(course, i === 0 ? nmL.value : nmS.value);
+        const card = document.createElement('div'); card.className = 'card';
+        const bar = document.createElement('div'); bar.className = 'bar';
+        bar.textContent = course.code + '  |  ' + d.name;
+        const btn = document.createElement('button'); btn.textContent = 'Download PNG';
+        btn.onclick = () => { btn.disabled = true; window.LMS_CERT.download(v.id, d, { fileName: 'certificate_' + v.id + '_' + course.code + '.png' }).finally(() => { btn.disabled = false; }); };
+        bar.appendChild(btn);
+        card.appendChild(bar);
+        const holder = document.createElement('div');
+        holder.innerHTML = window.LMS_CERT.render(v.id, d);
+        card.appendChild(holder);
+        grid.appendChild(card);
+      });
+      row.appendChild(grid);
+      main.appendChild(row);
+    });
+  }
+  let t = null;
+  const redraw = () => { clearTimeout(t); t = setTimeout(draw, 200); };
+  nmL.addEventListener('input', redraw); nmS.addEventListener('input', redraw);
+  document.getElementById('swap').onclick = () => { const a = nmL.value; nmL.value = nmS.value; nmS.value = a; draw(); };
+  window.LMS_CERT.ensureFonts().then(() => {
+    const st = document.getElementById('status');
+    const missing = window.LMS_CERT.families.filter((f) => !document.fonts.check('16px "' + f + '"'));
+    st.textContent = missing.length ? 'Missing fonts: ' + missing.join(', ') : 'Fonts loaded';
+    draw();
+    window.__certReady = true;
+  });
+})();
+</script>
+</body>
+</html>

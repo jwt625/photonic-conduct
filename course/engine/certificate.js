@@ -475,7 +475,7 @@
     s += b.svg;
     b = block(W / 2, b.bottom + 30, w.line, { font: F.fell, style: 'italic', size: 16.5, maxW: 760, lines: 2, fill: '#2b2b2b' });
     s += b.svg;
-    s += text(W / 2, b.bottom + 25, 'with all the rights, privileges, and return loss appertaining thereto.', { font: F.fell, size: 15.5, fill: '#2b2b2b' });
+    s += text(W / 2, b.bottom + 25, 'with all the rights, privileges, and ' + d.perks + ' appertaining thereto.', { font: F.fell, size: 15.5, fill: '#2b2b2b' });
     s += text(W / 2, b.bottom + 47, 'Course ' + d.courseCode + '  •  ' + d.hours + ' Contact Hours  •  ' + d.policy, { font: F.fell, size: fitSize('Course ' + d.courseCode + '  •  ' + d.hours + ' Contact Hours  •  ' + d.policy, 12.5, 9, 820, F.fell), fill: '#555', ls: 0.3 });
     /* signatures and seal */
     const yl = 692;
@@ -557,7 +557,7 @@
     s += b.svg;
     b = block(W / 2, b.bottom + 28, w.line, { font: F.fell, style: 'italic', size: 16, maxW: 760, lines: 2, fill: '#2e2118' });
     s += b.svg;
-    b = block(W / 2, b.bottom + 24, 'is hereby admitted to the company of persons in good photonic standing, with all the rights, privileges, and return loss appertaining thereto.', { font: F.fell, size: 15.5, maxW: 780, lines: 2, fill: '#2e2118' });
+    b = block(W / 2, b.bottom + 24, 'is hereby admitted to the company of persons in good photonic standing, with all the rights, privileges, and ' + d.perks + ' appertaining thereto.', { font: F.fell, size: 15.5, maxW: 780, lines: 2, fill: '#2e2118' });
     s += b.svg;
     /* signature left, seal centre, registry right */
     s += text(W / 2, b.bottom + 24, 'Course ' + d.courseCode + '  •  ' + d.policy, { font: F.fell, size: fitSize('Course ' + d.courseCode + '  •  ' + d.policy, 12.5, 9, 760, F.fell), fill: '#4a3426', ls: 0.3 });
@@ -768,6 +768,7 @@
     d.hours = d.hours || '1.0';
     d.policy = d.policy || '';
     d.mantra = d.mantra || [];
+    d.perks = d.perks || 'return loss';
     return d;
   }
   function render(variant, data, opts) {
@@ -834,7 +835,7 @@
       name: o.name, date: o.date, certNo: o.certNo,
       courseTitle: course.title, courseCode: course.code, hours, policy: course.policy || '',
       host: course.host ? { name: course.host.name, role: course.host.role } : null,
-      mantra: course.mantraShort || (course.mantra ? [course.mantra] : []), line: cert.line,
+      mantra: course.mantraShort || (course.mantra ? [course.mantra] : []), line: cert.line, perks: cert.perks,
     });
   }
 

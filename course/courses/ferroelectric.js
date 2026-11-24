@@ -3016,7 +3016,7 @@
     mantraShort: ['Know your axes.', 'Watch your charge.', 'Scan both ways.', 'Trust no symmetry plane.'],
     host: { name: 'Pat Reynolds', role: 'Director, Office of Photonic Conduct', img: 'media/render/host_pat_present.jpg',
       cam: { idle: 'media/render/host_pat_cam_idle.mp4', talk: ['media/render/host_pat_cam_talk.mp4', { src: 'media/render/host_pat_cam_gesture.mp4', weight: 0.5 }] } },
-    certificate: { line: 'and is hereby certified to know the orientation of every crystal in their custody, to account for every surface charge, and to scan in both directions without being asked.' },
+    certificate: { line: 'and is hereby certified to know the orientation of every crystal in their custody, to account for every surface charge, and to scan in both directions without being asked.', perks: 'crystal axes' },
     employer: 'Five Sigma Photonics, Inc.',
     chapters: [ch0, ch1, chSrc, ch2, ch3, ch4, ch5, ch6],
     exam: { passPct: 80, count: 10, pool: pool },

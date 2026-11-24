@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-11-23 |
-| Status | Delivered for review and committed 2026-11-23; certificate pick pending |
+| Status | Delivered for review and committed 2026-11-23; certificate A chosen |
 | Repo | photonic-conduct (standalone; the PlayGround folder is stale) |
 | Depends on | DevLog-004, DevLog-006, `course/COURSE_SPEC.md` |
 
@@ -48,7 +48,7 @@ and remember new work now all happens in the standlaone repo. Write new devlog(s
 - [x] CAST portraits and flip cards
 - [x] MFE, MFB media for all listed steps
 - [x] Validator shows zero media-fallback warnings; browser sweep of every step
-- [ ] Certificate variants reviewed (DevLog-006)
+- [x] Certificate variants reviewed (DevLog-006): A chosen
 
 ## 6. Progress
 
