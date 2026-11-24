@@ -10,6 +10,11 @@
 <script src="engine/vendor/katex/katex.min.js"></script>
 <script src="engine/vendor/katex/contrib/auto-render.min.js"></script>
 <script src="engine/math.js"></script>
+<script src="engine/speech_hash.js"></script>
+<script src="engine/speech_lines.js"></script>
+<script src="media/credits_fe.js"></script>
+<script src="media/credits_fb.js"></script>
+<script src="media/credits_render.js"></script>
 <script src="courses/ferroelectric.js"></script>
 <script src="courses/feedback.js"></script>
 </head>
@@ -28,7 +33,7 @@
     <div class="kpi bad"><div class="v" id="k-compliance">0%</div><div class="k">Personal compliance score</div></div>
     <div class="kpi"><div class="v">2026-12-31</div><div class="k">Earliest due date</div></div>
   </div>
-  <div class="tiles" id="tiles"></div>
+  <div id="cats"></div>
   <p style="color:var(--ink-3);font-size:12px;margin-top:22px">Completion is tracked. Training records are retained for seven years or one laser lifetime, whichever is longer.</p>
   <p id="dev-note" style="display:none;color:var(--ink-3);font-size:12px">Development host: append <code>?dev=1</code> to a course link (or use the Dev links above) for dev mode: navigation unlocked, dev panel, image path overlay. Ignored on any other host.</p>
 </div>
@@ -42,42 +47,98 @@
   var C = window.LMS_COURSES || {};
   var live = ['ferroelectric', 'feedback'].filter(function (k) { return C[k]; });
   var soon = [
-    ['PKG-1444', 'The Adhesive Is an Optical Component', 'Refractive index discipline at the fiber-attach interface, cure shrinkage, and fillets that wander onto facets.'],
-    ['PKG-0260', 'Warpage Is an Alignment Error', 'Convex at room temperature, concave at reflow, convex again at peak. Your alignment, all three times.'],
-    ['RF-0443', 'Your DC Is Not Your RF', 'Slow charge, fast fields, and the V pi you measured with a power supply.'],
-    ['MET-0003', 'Metric Reporting Integrity', 'Normalization frequencies, factor-of-two conventions, and loaded versus intrinsic Q.'],
-    ['SIM-0001', 'Simulation Integrity and Boundary Conduct', 'Symmetry planes, perfectly matched layers, and modes that live only in the box.'],
-    ['CAV-0124', 'Ultrastable Cavity Conduct', 'Zero crossings, mounts, and coatings that are noisier than you are.']
+    ['PKG-1444', 'The Adhesive Is an Optical Component', 'Refractive index discipline at the fiber-attach interface, cure shrinkage, and fillets that wander onto facets.', 'media/render/sin_microring_lensed_fiber.jpg'],
+    ['PKG-0260', 'Warpage Is an Alignment Error', 'Convex at room temperature, concave at reflow, convex again at peak. Your alignment, all three times.', 'media/fe/card_packaged_chip.jpg'],
+    ['RF-0443', 'Your DC Is Not Your RF', 'Slow charge, fast fields, and the V pi you measured with a power supply.', 'media/render/tfln_probe_station_closeup.jpg'],
+    ['MET-0003', 'Metric Reporting Integrity', 'Normalization frequencies, factor-of-two conventions, and loaded versus intrinsic Q.', 'media/fe/sim_lab_notebook.jpg'],
+    ['SIM-0001', 'Simulation Integrity and Boundary Conduct', 'Symmetry planes, perfectly matched layers, and modes that live only in the box.', 'media/fe/sim_screen_from_behind.jpg'],
+    ['CAV-0124', 'Ultrastable Cavity Conduct', 'Zero crossings, mounts, and coatings that are noisier than you are.', 'media/fb/fp_sodium_rings.jpg']
   ];
   var devHost = typeof window.LMS_isDevHost === 'function' && window.LMS_isDevHost();
   if (devHost) document.getElementById('dev-note').style.display = '';
-  var tiles = document.getElementById('tiles');
-  var done = 0;
-  function pct(k) {
+  var still = false;
+  try { still = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  var MEDIA = window.LMS_MEDIA || {};
+  function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function stepsDone(k) {
     try { var s = JSON.parse(localStorage.getItem('lms_parody_' + k) || '{}'); return s.completed ? s.completed.length : 0; } catch (e) { return 0; }
   }
+  /* background: photos stacked, the first shown; credit (registry) in the top-right corner */
+  function backdrop(srcs) {
+    var bg = document.createElement('div'); bg.className = 'tile-bg';
+    srcs.forEach(function (src, i) {
+      var im = document.createElement('img');
+      im.src = src; im.alt = (MEDIA[src] && MEDIA[src].alt) || ''; im.decoding = 'async'; im.loading = i ? 'lazy' : 'eager';
+      if (!i) im.className = 'on';
+      bg.appendChild(im);
+    });
+    var veil = document.createElement('div'); veil.className = 'veil'; bg.appendChild(veil);
+    var cr = document.createElement('span'); cr.className = 'tile-credit'; bg.appendChild(cr);
+    function credit(i) { var m = MEDIA[srcs[i]]; cr.textContent = m && m.credit ? m.credit : ''; cr.title = cr.textContent; }
+    credit(0);
+    return { el: bg, credit: credit, n: srcs.length };
+  }
+  var rotors = [];
+  var groups = { completed: [], progress: [], notStarted: [], soon: [] };
   live.forEach(function (k) {
     var c = C[k];
     var total = c.chapters.reduce(function (a, ch) { return a + ch.steps.length; }, 0) + 1;
-    var n = Math.min(total, pct(k));
+    var n = Math.min(total, stepsDone(k));
     var p = Math.round(100 * n / total);
-    if (p >= 100) done++;
+    var covers = c.chapters.map(function (ch) { return window.LMS_chapterCover ? window.LMS_chapterCover(ch) : null; }).filter(Boolean);
     var el = document.createElement('div');
-    el.className = 'tile-c';
-    el.innerHTML = '<div class="tb"><div class="code">' + c.code + '  |  ' + c.duration + '</div><h2>' + c.title + '</h2><p>' + (c.subtitle || '') + '</p>' +
-      '<div class="progress-bar" style="margin-top:12px"><div style="width:' + p + '%"></div></div></div>' +
-      '<div class="tf"><span class="tag req">REQUIRED</span>' + (p < 100 ? '<span class="tag over">DUE 2026-12-31</span>' : '<span class="tag soon">COMPLETE</span>') +
+    el.className = 'tile-c has-bg';
+    var bd = backdrop(covers);
+    el.appendChild(bd.el);
+    if (bd.n > 1 && !still) rotors.push(bd);
+    el.insertAdjacentHTML('beforeend', '<div class="tb"><div class="code">' + esc(c.code) + '  |  ' + esc(c.duration) + '</div><h2>' + esc(c.title) + '</h2><p>' + esc(c.subtitle || '') + '</p>' +
+      '<div class="progress-bar" title="' + p + '% complete" style="margin-top:12px"><div style="width:' + p + '%"></div></div></div>' +
+      '<div class="tf"><span class="tag req">REQUIRED</span>' + (p < 100 ? '<span class="tag over">DUE 2026-12-31</span>' : '<span class="tag done">COMPLETE</span>') +
       '<span style="flex:1"></span><a class="btn primary" style="text-decoration:none" href="player.html?c=' + k + '">' + (n ? 'Resume' : 'Start') + '</a>' +
-      (devHost ? '<a class="btn small" style="text-decoration:none" href="player.html?c=' + k + '&dev=1" title="Dev mode: navigation unlocked, dev panel">Dev</a>' : '') + '</div>';
-    tiles.appendChild(el);
+      (devHost ? '<a class="btn small" style="text-decoration:none" href="player.html?c=' + k + '&dev=1" title="Dev mode: navigation unlocked, dev panel">Dev</a>' : '') + '</div>');
+    (p >= 100 ? groups.completed : n ? groups.progress : groups.notStarted).push(el);
   });
   soon.forEach(function (s) {
     var el = document.createElement('div');
-    el.className = 'tile-c locked';
-    el.innerHTML = '<div class="tb"><div class="code">' + s[0] + '</div><h2>' + s[1] + '</h2><p>' + s[2] + '</p></div>' +
-      '<div class="tf"><span class="tag soon">COMING SOON</span><span class="tag req">WILL BE REQUIRED</span></div>';
-    tiles.appendChild(el);
+    el.className = 'tile-c has-bg locked';
+    el.appendChild(backdrop([s[3]]).el);
+    el.insertAdjacentHTML('beforeend', '<div class="tb"><div class="code">' + esc(s[0]) + '</div><h2>' + esc(s[1]) + '</h2><p>' + esc(s[2]) + '</p></div>' +
+      '<div class="tf"><span class="tag soon">COMING SOON</span><span class="tag soon">WILL BE REQUIRED</span></div>');
+    groups.soon.push(el);
   });
+  var cats = [
+    ['completed', 'Completed', 'No completed courses on record.'],
+    ['progress', 'In progress', 'No course in progress.'],
+    ['notStarted', 'Not started', 'Every assigned course has been started.'],
+    ['soon', 'Coming soon', 'Nothing scheduled.']
+  ];
+  var host = document.getElementById('cats');
+  cats.forEach(function (g) {
+    var items = groups[g[0]];
+    var sec = document.createElement('section'); sec.className = 'cat cat-' + g[0];
+    sec.innerHTML = '<h3 class="cat-h">' + g[1] + '<span class="n">' + items.length + '</span></h3>';
+    if (items.length) {
+      var tiles = document.createElement('div'); tiles.className = 'tiles';
+      items.forEach(function (el) { tiles.appendChild(el); });
+      sec.appendChild(tiles);
+    } else {
+      sec.insertAdjacentHTML('beforeend', '<div class="cat-empty">' + g[2] + '</div>');
+    }
+    host.appendChild(sec);
+  });
+  /* live tiles cross-fade through their chapter covers, staggered; the outgoing photo keeps its push-in while it fades */
+  rotors.forEach(function (r, ti) {
+    var imgs = r.el.querySelectorAll('img'), i = 0;
+    setTimeout(function () {
+      setInterval(function () {
+        if (document.hidden) return;
+        var prev = imgs[i]; i = (i + 1) % imgs.length;
+        prev.className = 'prev'; imgs[i].className = 'on'; r.credit(i);
+        setTimeout(function () { if (prev.className === 'prev') prev.className = ''; }, 1600);
+      }, 7000);
+    }, 2500 * ti);
+  });
+  var done = groups.completed.length;
   document.getElementById('k-assigned').textContent = live.length + soon.length;
   document.getElementById('k-done').textContent = done;
   document.getElementById('k-compliance').textContent = Math.round(100 * done / (live.length + soon.length)) + '%';
